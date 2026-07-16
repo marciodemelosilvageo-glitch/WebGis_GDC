@@ -1,0 +1,371 @@
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundAttachment: 'fixed',
+          }}
+        />
+      </div>
+      {/* Camada de Desfoque de Fundo para Efeito Vidro */}
+      <div className="fixed inset-0 bg-white/40 backdrop-blur-md z-[-1]" />
+
+      {/* QUADRO PRINCIPAL / CONTAINERS EM BLOCOS EMPILHADOS */}
+      <main className="w-full space-y-4 sm:space-y-6 z-10 relative">
+        
+        {/* BLOCO: CABEÇALHO E BUSCA */}
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: false, margin: "-5%" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full bg-white rounded-2xl shadow-2xl p-4 sm:p-6 border border-white/50 relative z-20"
+        >
+          <header className="flex flex-col lg:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            {/* Logo e Branding */}
+            <div className="flex items-center gap-3">
+              <img 
+                src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-Photoroom.png" 
+                alt="Logo WebGis" 
+                className="h-14 sm:h-16 hover:scale-105 transition-transform" 
+              />
+            </div>
+
+            {/* Campo de Busca Avançada */}
+            <div className="w-full lg:w-auto flex flex-col gap-2 max-w-xl flex-grow lg:flex-grow-0">
+              {/* Opção de busca restrita */}
+              <div className="flex items-center self-end" title="Busca somente nas camadas ligadas">
+                <input 
+                  id="search-active-layers-toggle" 
+                  type="checkbox" 
+                  checked={searchActiveLayersOnly}
+                  onChange={(e) => setSearchActiveLayersOnly(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
+                />
+                <label htmlFor="search-active-layers-toggle" className="ml-2 text-xs text-slate-600 font-semibold cursor-pointer select-none">
+                  Pesquisar apenas nas camadas ativas
+                </label>
+              </div>
+
+              {/* Barra de Input */}
+              <div className="w-full flex items-center gap-2">
+                <div className="relative flex-grow">
+                  <div className="flex rounded-xl shadow-sm border border-slate-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden bg-slate-50 transition-all">
+                    <input 
+                      type="text" 
+                      id="search-input" 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Pesquisar (ex: Centro, Teresina)" 
+                      autoComplete="off"
+                      className="w-full px-4 py-2.5 text-slate-800 bg-transparent focus:outline-none text-sm placeholder-slate-400 font-semibold"
+                    />
+                    {searchQuery && (
+                      <button 
+                        onClick={handleAbandonSearch}
+                        className="px-2 text-slate-400 hover:text-red-500 cursor-pointer"
+                        title="Limpar busca"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button 
+                      onClick={handleSearch}
+                      disabled={isSearchLoading}
+                      className="px-4 bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center cursor-pointer border-l border-indigo-700" 
+                      title="Pesquisar"
+                    >
+                      {isSearchLoading ? (
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <Search className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500 ml-1 font-medium select-none">
+                💡 Dica: Use <strong>vírgula</strong> para filtrar por município (ex: <em>Cacimba, Teresina</em>).
+              </p>
+            </div>
+          </header>
+
+          {/* PAINEL DE RESULTADOS DA BUSCA */}
+          <AnimatePresence>
+            {isSearchResultsVisible && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                id="search-results-container" 
+                className="w-full bg-white rounded-2xl border border-indigo-100 shadow-xl p-4 space-y-3 mt-4 z-30 relative"
+              >
+                <div className="flex justify-between items-center border-b border-indigo-50 pb-2">
+                  <small id="search-results-title" className="text-indigo-900 font-bold text-sm">
+                    {isSearchLoading ? 'Buscando...' : `${totalResultsCount} resultado(s) encontrado(s)`}
+                  </small>
+                  <button 
+                    onClick={handleAbandonSearch}
+                    className="text-slate-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-colors cursor-pointer" 
+                    title="Fechar resultados"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div id="search-results-list" className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                  {Object.keys(searchResults).length > 0 ? (
+                    Object.entries(searchResults).map(([groupName, items]) => {
+                      const isCollapsed = !!collapsedGroups[groupName];
+                      const typedItems = items as SearchResultItem[];
+                      return (
+                        <div key={groupName} className="border border-slate-100 rounded-xl overflow-hidden bg-white shadow-sm">
+                          <button 
+                            onClick={() => setCollapsedGroups({ ...collapsedGroups, [groupName]: !isCollapsed })}
+                            className="w-full p-3 flex justify-between items-center bg-slate-50/80 text-slate-800 hover:bg-slate-50 transition-colors font-bold text-sm border-b border-slate-100 cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-indigo-800">{groupName}</span>
+                              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{typedItems.length}</span>
+                            </div>
+                            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                          </button>
+
+                          {!isCollapsed && (
+                            <div className="divide-y divide-slate-50">
+                              {typedItems.map((item, idx) => {
+                                const featureProps = item.polygonLayer.feature.properties;
+                                const identifier = getIdentifier(featureProps);
+                                let displayVal = item.value;
+                                if (item.key === 'CD_SIT' || item.key === 'CD_TIPO') {
+                                  displayVal = getTranslatedValue(item.key, item.value);
+                                }
+                                const fieldName = propertyNames[item.key] || item.key;
+                                const muniContext = featureProps['Nome do município'] || featureProps['NM_MUN'];
+
+                                return (
+                                  <div 
+                                    key={idx}
+                                    onClick={() => handleResultItemClick(groupName, item)}
+                                    className="p-3 hover:bg-indigo-50/40 cursor-pointer transition-colors text-sm pl-6 flex items-start gap-2 group"
+                                  >
+                                    <MapPin className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 mt-0.5 shrink-0" />
+                                    <div className="flex-grow">
+                                      <p className="font-semibold text-slate-800 group-hover:text-indigo-900 transition-colors">{identifier}</p>
+                                      {String(displayVal).toLowerCase() !== String(identifier).toLowerCase() ? (
+                                        <p className="text-xs text-slate-500 mt-0.5">
+                                          Encontrado em <strong className="text-slate-600">{fieldName}</strong>: {displayVal}
+                                        </p>
+                                      ) : (
+                                        <p className="text-xs text-slate-400 mt-0.5">Atributo: {fieldName}</p>
+                                      )}
+                                      {muniContext && String(muniContext).toLowerCase() !== String(identifier).toLowerCase() && (
+                                        <p className="text-[10px] text-indigo-600 font-bold mt-1 bg-indigo-50 px-2 py-0.5 rounded-full inline-block">
+                                          Município: {muniContext}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    !isSearchLoading && (
+                      <p className="p-4 text-center text-slate-500 text-sm font-semibold bg-slate-50 rounded-xl">
+                        Nenhum local correspondente encontrado. Verifique a grafia ou experimente outra camada.
+                      </p>
+                    )
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* BLOCO: MAPA INTERATIVO PRINCIPAL */}
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: false, margin: "-5%" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full bg-white rounded-2xl shadow-2xl p-4 sm:p-6 border border-white/50 relative z-10"
+        >
+          <MapComponent 
+            isMultiSelectMode={isMultiSelectMode}
+            onToggleMultiSelect={() => {
+              setIsMultiSelectMode(!isMultiSelectMode);
+              showToast(isMultiSelectMode ? 'Multiseleção desativada.' : 'Multiseleção ativada! Clique em várias áreas.');
+            }}
+            selectedFeatures={selectedFeatures}
+            onSelectionChange={setSelectedFeatures}
+            showToast={showToast}
+            statusText={statusText}
+            setStatusText={setStatusText}
+            isLoading={isLoading}
+            setIsLoading={setIsLoading}
+            activeLayers={activeLayers}
+            setActiveLayers={setActiveLayers}
+            setMapInstance={setMapInstance}
+            registerMapActions={(actions) => {
+              mapActionsRef.current = actions;
+            }}
+            searchCoordinate={searchCoordinate}
+          />
+        </motion.div>
+
+        {/* BLOCO: PAINEL DASHBOARD (RAIO-X POPULACIONAL) */}
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: false, margin: "-5%" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full relative z-10"
+        >
+          <Dashboard selectedFeatures={selectedFeatures} />
+        </motion.div>
+
+        {/* FEIÇÕES SELECIONADAS (LISTAGEM DE SELEÇÃO ATUAL COM LIMPEZA E ZOOM) */}
+        <AnimatePresence>
+          {selectedFeatures.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, height: 'auto', y: 0, scale: 1 }}
+              exit={{ opacity: 0, height: 0, y: -20, scale: 0.95 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              id="selected-features-container" 
+              className="w-full bg-white rounded-2xl border border-slate-100 shadow-xl p-4 overflow-hidden relative z-10"
+            >
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 border-l-4 border-indigo-600 pl-2.5 mb-3">
+                Feições Selecionadas ({selectedFeatures.length})
+              </h3>
+              <div id="selected-features-list" className="max-h-[180px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                {selectedFeatures.map(feat => (
+                  <div 
+                    key={feat.id} 
+                    className="flex justify-between items-center p-2.5 bg-slate-50 hover:bg-indigo-50/10 border border-slate-100 rounded-xl transition-all"
+                  >
+                    <div>
+                      <p className="font-bold text-sm text-slate-900 leading-snug">{feat.name}</p>
+                      <p className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-full inline-block mt-1">
+                        {feat.sourceName}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => handleZoomToFeature(feat)}
+                        className="p-1.5 text-indigo-700 hover:bg-indigo-100/50 rounded-lg transition-colors cursor-pointer" 
+                        title="Zoom na feição"
+                      >
+                        <ZoomIn className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => handleRemoveFromSelection(feat.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" 
+                        title="Remover da seleção"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* BLOCO: TABELA DE PROPRIEDADES E EXPORTAÇÃO */}
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: false, margin: "-5%" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full relative z-10"
+        >
+          <PropertyTable selectedFeatures={selectedFeatures} showToast={showToast} />
+        </motion.div>
+
+      </main>
+
+      {/* BLOCO: RODAPÉ E PARCEIROS */}
+      <motion.footer 
+        initial={{ opacity: 0, y: 40, scale: 0.95 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
+        viewport={{ once: false, margin: "-5%" }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full mt-2 text-center pb-4 select-none z-10 relative"
+      >
+        <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-100 flex flex-col items-center gap-6">
+          <div className="w-full flex flex-col items-center gap-3">
+            <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Fontes</h4>
+            <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-10">
+              <img 
+                src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/IBGE.png" 
+                alt="Logo IBGE" 
+                className="h-5 sm:h-7 object-contain hover:scale-105 transition-transform"
+              />
+              <img 
+                src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/web/main/geojsom/SSP.png" 
+                alt="Logo SSP" 
+                className="h-8 sm:h-10 object-contain hover:scale-105 transition-transform"
+                onError={(e) => {
+                  // Fallback caso a URL SSP original mude
+                  (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-removebg-preview.png';
+                }}
+              />
+              <img 
+                src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-Photoroom.png" 
+                alt="Logo Gerência de Dados" 
+                className="h-8 sm:h-10 object-contain hover:scale-105 transition-transform"
+              />
+            </div>
+          </div>
+          
+          <div className="border-t border-slate-100 w-full pt-4 mt-2 flex flex-col items-center gap-1.5">
+            <p className="text-sm font-extrabold text-slate-700">WebGis</p>
+            <p className="text-xs text-slate-500 max-w-lg text-center leading-relaxed">
+              Encontrou algum bug, tem sugestões de melhorias ou algo deu errado? Entre em contato:
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-1 text-[13px] text-slate-600">
+              <a 
+                href="https://wa.me/5586981689456" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:text-emerald-600 font-bold transition-colors underline decoration-emerald-300 underline-offset-2"
+              >
+                (86) 98168-9456
+              </a>
+              <span className="text-slate-300">•</span>
+              <a 
+                href="mailto:marciodemelosilva.geo@gmail.com" 
+                className="hover:text-indigo-600 font-bold transition-colors underline decoration-indigo-300 underline-offset-2"
+              >
+                marciodemelosilva.geo@gmail.com
+              </a>
+            </div>
+          </div>
+        </div>
+      </motion.footer>
+
+      {/* NOTIFICAÇÃO TOAST TEMPORÁRIA */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: 30, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 30, x: '-50%' }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl z-[5000] font-bold text-sm flex items-center gap-2 border border-slate-800"
+          >
+            <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* BOTÃO AJUDA FLUTUANTE */}
+      <button 
+        id="help-btn" 
+        onClick={() => setIsHelpOpen(true)}

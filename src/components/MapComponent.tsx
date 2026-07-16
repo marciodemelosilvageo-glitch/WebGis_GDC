@@ -615,7 +615,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         <div 
           ref={mapContainerRef} 
           id="map" 
-          style={{ height: '65vh' }}
+          style={{ height: '75vh' }}
           className="w-full rounded-2xl border-2 border-gray-200 shadow-inner overflow-hidden z-10" 
           role="region" 
           aria-label="Mapa interativo"

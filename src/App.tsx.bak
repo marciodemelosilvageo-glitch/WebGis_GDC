@@ -536,10 +536,17 @@ export default function App() {
       {/* Camada de Desfoque de Fundo para Efeito Vidro */}
       <div className="fixed inset-0 bg-white/40 backdrop-blur-md z-[-1]" />
 
-      {/* QUADRO PRINCIPAL */}
-      <main className="w-full bg-white rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 z-10 border border-white/50">
+      {/* QUADRO PRINCIPAL / CONTAINERS EM BLOCOS EMPILHADOS */}
+      <main className="w-full space-y-4 sm:space-y-6 z-10 relative">
         
-        {/* CABEÇALHO E BUSCA */}
+        {/* BLOCO: CABEÇALHO E BUSCA */}
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: false, margin: "-5%" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full bg-white rounded-2xl shadow-2xl p-4 sm:p-6 border border-white/50 relative z-20"
+        >
           <header className="flex flex-col lg:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
             {/* Logo e Branding */}
             <div className="flex items-center gap-3">
@@ -620,7 +627,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 id="search-results-container" 
-                className="w-full bg-white rounded-2xl border border-indigo-100 shadow-xl p-4 space-y-3 z-30 relative"
+                className="w-full bg-white rounded-2xl border border-indigo-100 shadow-xl p-4 space-y-3 mt-4 z-30 relative"
               >
                 <div className="flex justify-between items-center border-b border-indigo-50 pb-2">
                   <small id="search-results-title" className="text-indigo-900 font-bold text-sm">
@@ -706,8 +713,16 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
+        </motion.div>
 
-        {/* MAPA INTERATIVO PRINCIPAL */}
+        {/* BLOCO: MAPA INTERATIVO PRINCIPAL */}
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: false, margin: "-5%" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full bg-white rounded-2xl shadow-2xl p-4 sm:p-6 border border-white/50 relative z-10"
+        >
           <MapComponent 
             isMultiSelectMode={isMultiSelectMode}
             onToggleMultiSelect={() => {
@@ -729,19 +744,29 @@ export default function App() {
             }}
             searchCoordinate={searchCoordinate}
           />
+        </motion.div>
 
-        {/* PAINEL DASHBOARD (RAIO-X POPULACIONAL) */}
+        {/* BLOCO: PAINEL DASHBOARD (RAIO-X POPULACIONAL) */}
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: false, margin: "-5%" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full relative z-10"
+        >
           <Dashboard selectedFeatures={selectedFeatures} />
+        </motion.div>
 
         {/* FEIÇÕES SELECIONADAS (LISTAGEM DE SELEÇÃO ATUAL COM LIMPEZA E ZOOM) */}
         <AnimatePresence>
           {selectedFeatures.length > 0 && (
             <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0, height: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, height: 'auto', y: 0, scale: 1 }}
+              exit={{ opacity: 0, height: 0, y: -20, scale: 0.95 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
               id="selected-features-container" 
-              className="w-full bg-white rounded-2xl border border-slate-100 shadow-xl p-4 overflow-hidden"
+              className="w-full bg-white rounded-2xl border border-slate-100 shadow-xl p-4 overflow-hidden relative z-10"
             >
               <h3 className="text-base sm:text-lg font-bold text-slate-800 border-l-4 border-indigo-600 pl-2.5 mb-3">
                 Feições Selecionadas ({selectedFeatures.length})
@@ -782,12 +807,26 @@ export default function App() {
         </AnimatePresence>
 
         {/* BLOCO: TABELA DE PROPRIEDADES E EXPORTAÇÃO */}
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: false, margin: "-5%" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full relative z-10"
+        >
           <PropertyTable selectedFeatures={selectedFeatures} showToast={showToast} />
+        </motion.div>
 
       </main>
 
-      {/* RODAPÉ E PARCEIROS */}
-      <footer className="w-full mt-2 text-center pb-4 select-none z-10">
+      {/* BLOCO: RODAPÉ E PARCEIROS */}
+      <motion.footer 
+        initial={{ opacity: 0, y: 40, scale: 0.95 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
+        viewport={{ once: false, margin: "-5%" }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full mt-2 text-center pb-4 select-none z-10 relative"
+      >
         <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-100 flex flex-col items-center gap-6">
           <div className="w-full flex flex-col items-center gap-3">
             <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Fontes</h4>
@@ -838,7 +877,7 @@ export default function App() {
             </div>
           </div>
         </div>
-      </footer>
+      </motion.footer>
 
       {/* NOTIFICAÇÃO TOAST TEMPORÁRIA */}
       <AnimatePresence>
