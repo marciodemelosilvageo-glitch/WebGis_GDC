@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Layers, ZoomIn, Copy, Compass, ExternalLink } from 'lucide-react';
+import { Layers, ZoomIn, Copy, Compass, ExternalLink, MousePointerClick } from 'lucide-react';
 import { DataSource, SelectedFeature, ContextMenuState } from '../types';
 import { dataSources, situationMap, typeMap, propertyNames } from '../data';
 import { getIdentifier, getTranslatedValue, getFeatureCenter } from '../utils';
@@ -23,6 +23,7 @@ interface MapComponentProps {
     selectFeature: (layer: L.Layer, feature: any, sourceName: string) => void;
   }) => void;
   searchCoordinate: { lat: number; lng: number } | null;
+  onToggleMultiSelect: () => void;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
@@ -38,7 +39,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   setActiveLayers,
   setMapInstance,
   registerMapActions,
-  searchCoordinate
+  searchCoordinate,
+  onToggleMultiSelect
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -578,6 +580,19 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             : 'Camadas ativas: nenhuma'}
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-center sm:justify-end">
+          <button 
+            id="btn-multi-select" 
+            onClick={onToggleMultiSelect}
+            className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              isMultiSelectMode 
+                ? 'bg-indigo-600 border-indigo-700 text-white hover:bg-indigo-700' 
+                : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+            }`}
+            title="Permite selecionar várias áreas tocando nelas sem precisar do teclado"
+          >
+            <MousePointerClick className="h-4 w-4" />
+            Multiseleção: {isMultiSelectMode ? 'ON' : 'OFF'}
+          </button>
           <button 
             onClick={handleTurnAllOn}
             className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-bold border border-indigo-200 transition-colors cursor-pointer" 

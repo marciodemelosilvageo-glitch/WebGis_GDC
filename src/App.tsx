@@ -493,7 +493,7 @@ export default function App() {
       <div className="fixed inset-0 bg-white/40 backdrop-blur-md z-[-1]" />
 
       {/* QUADRO PRINCIPAL / CONTAINER DE VIDRO GIGANTE */}
-      <main className="w-full max-w-[1440px] bg-white rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 z-10 border border-white/50">
+      <main className="w-full bg-white rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 z-10 border border-white/50">
         
         {/* CABEÇALHO */}
         <header className="flex flex-col lg:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -567,26 +567,6 @@ export default function App() {
             </p>
           </div>
         </header>
-
-        {/* TOOLBAR SECUNDÁRIA (OPÇÃO DE MULTISELEÇÃO) */}
-        <section className="flex flex-col sm:flex-row items-center justify-end gap-3 pb-1">
-          <button 
-            id="btn-multi-select" 
-            onClick={() => {
-              setIsMultiSelectMode(!isMultiSelectMode);
-              showToast(isMultiSelectMode ? 'Multiseleção desativada.' : 'Multiseleção ativada! Clique em várias áreas.');
-            }}
-            className={`px-3.5 py-2 rounded-xl border text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
-              isMultiSelectMode 
-                ? 'bg-indigo-600 border-indigo-700 text-white hover:bg-indigo-700' 
-                : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-            }`}
-            title="Permite selecionar várias áreas tocando nelas sem precisar do teclado"
-          >
-            <MousePointerClick className="h-4 w-4" />
-            Multiseleção: {isMultiSelectMode ? 'ON' : 'OFF'}
-          </button>
-        </section>
 
         {/* PAINEL DE RESULTADOS DA BUSCA */}
         <AnimatePresence>
@@ -686,6 +666,10 @@ export default function App() {
         {/* MAPA INTERATIVO PRINCIPAL */}
         <MapComponent 
           isMultiSelectMode={isMultiSelectMode}
+          onToggleMultiSelect={() => {
+            setIsMultiSelectMode(!isMultiSelectMode);
+            showToast(isMultiSelectMode ? 'Multiseleção desativada.' : 'Multiseleção ativada! Clique em várias áreas.');
+          }}
           selectedFeatures={selectedFeatures}
           onSelectionChange={setSelectedFeatures}
           showToast={showToast}
@@ -759,7 +743,7 @@ export default function App() {
       </main>
 
       {/* RODAPÉ E PARCEIROS */}
-      <footer className="w-full max-w-[1440px] mt-2 text-center pb-4 select-none z-10">
+      <footer className="w-full mt-2 text-center pb-4 select-none z-10">
         <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-100 flex flex-col items-center gap-6">
           <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-10">
             <img 
