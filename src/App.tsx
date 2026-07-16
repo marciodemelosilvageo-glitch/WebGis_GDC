@@ -10,7 +10,7 @@ import {
   ChevronUp, 
   MapPin, 
   Info,
-  Check
+  Check, Sun, Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import L from 'leaflet';
@@ -50,6 +50,26 @@ export default function App() {
 
   // Controle do Modal de Ajuda e Notificações (Toast)
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
+
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved === 'dark';
+      return false;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -444,7 +464,7 @@ export default function App() {
     return (
       <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-4 font-sans select-none overflow-hidden animate-fade-in">
         {/* Papel de parede de fundo desfocado (borrado) - Corrigido para não bugar no fundo */}
-        <div className="fixed inset-0 z-[-2] pointer-events-none overflow-hidden bg-black">
+        <div className="fixed inset-0 z-[-2] pointer-events-none overflow-hidden bg-white dark:bg-slate-900">
           <div 
             className="absolute inset-[-10%] w-[120%] h-[120%] filter blur-[15px] scale-105"
             style={{
@@ -456,14 +476,14 @@ export default function App() {
           />
         </div>
         {/* Camada de Desfoque de Fundo para Efeito Vidro */}
-        <div className="fixed inset-0 bg-white/40 backdrop-blur-md z-[-1]" />
+        <div className="fixed inset-0 bg-white/40 dark:bg-slate-900/80 backdrop-blur-md z-[-1]" />
 
         {/* Card de Entrada */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="w-full max-w-lg bg-white/80 backdrop-blur-xl rounded-3xl p-8 sm:p-10 shadow-2xl border border-white/60 flex flex-col items-center text-center space-y-8"
+          className="w-full max-w-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl p-8 sm:p-10 shadow-2xl border border-white/60 flex flex-col items-center text-center space-y-8"
         >
           {/* Logo Principal */}
           <motion.div
@@ -480,13 +500,13 @@ export default function App() {
  
           {/* Título e Texto */}
           <div className="space-y-3">
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-800">
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-800 dark:text-slate-200">
               WebGis
             </h1>
             <p className="text-xs sm:text-sm font-semibold tracking-widest text-indigo-700 uppercase">
               Inteligência Geográfica
             </p>
-            <p className="text-slate-600 text-sm sm:text-base leading-relaxed pt-2">
+            <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base leading-relaxed pt-2">
               Explore camadas de dados geoespaciais, faça consultas avançadas e analise informações municipais em uma interface interativa de alto desempenho.
             </p>
           </div>
@@ -522,7 +542,7 @@ export default function App() {
   return (
     <div className="relative min-h-screen w-full flex flex-col items-center p-2 sm:p-4 md:p-6 space-y-4 font-sans select-none overflow-x-hidden">
       {/* Papel de parede de fundo desfocado (borrado) - Corrigido para não bugar no fundo */}
-      <div className="fixed inset-0 z-[-2] pointer-events-none overflow-hidden bg-black">
+      <div className="fixed inset-0 z-[-2] pointer-events-none overflow-hidden bg-white dark:bg-slate-900">
         <div 
           className="absolute inset-[-10%] w-[120%] h-[120%] filter blur-[15px] scale-105"
           style={{
@@ -534,13 +554,13 @@ export default function App() {
         />
       </div>
       {/* Camada de Desfoque de Fundo para Efeito Vidro */}
-      <div className="fixed inset-0 bg-white/40 backdrop-blur-md z-[-1]" />
+      <div className="fixed inset-0 bg-white/40 dark:bg-slate-900/80 backdrop-blur-md z-[-1]" />
 
       {/* QUADRO PRINCIPAL */}
-      <main className="w-full bg-white rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 z-10 border border-white/50">
+      <main className="w-full bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 z-10 border border-white/50 dark:border-slate-700/50">
         
         {/* CABEÇALHO E BUSCA */}
-          <header className="flex flex-col lg:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <header className="flex flex-col lg:flex-row items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
             {/* Logo e Branding */}
             <div className="flex items-center gap-3">
               <img 
@@ -549,6 +569,17 @@ export default function App() {
                 className="h-14 sm:h-16 hover:scale-105 transition-transform" 
               />
             </div>
+
+
+            {/* Toggle Tema Escuro */}
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2 sm:p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors shadow-sm"
+              title={isDarkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5 sm:w-6 sm:h-6" /> : <Moon className="w-5 h-5 sm:w-6 sm:h-6" />}
+            </button>
+            <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
 
             {/* Campo de Busca Avançada */}
             <div className="w-full lg:w-auto flex flex-col gap-2 max-w-xl flex-grow lg:flex-grow-0">
@@ -559,9 +590,9 @@ export default function App() {
                   type="checkbox" 
                   checked={searchActiveLayersOnly}
                   onChange={(e) => setSearchActiveLayersOnly(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
+                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
                 />
-                <label htmlFor="search-active-layers-toggle" className="ml-2 text-xs text-slate-600 font-semibold cursor-pointer select-none">
+                <label htmlFor="search-active-layers-toggle" className="ml-2 text-xs text-slate-600 dark:text-slate-400 font-semibold cursor-pointer select-none">
                   Pesquisar apenas nas camadas ativas
                 </label>
               </div>
@@ -569,7 +600,7 @@ export default function App() {
               {/* Barra de Input */}
               <div className="w-full flex items-center gap-2">
                 <div className="relative flex-grow">
-                  <div className="flex rounded-xl shadow-sm border border-slate-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden bg-slate-50 transition-all">
+                  <div className="flex rounded-xl shadow-sm border border-slate-300 dark:border-slate-600 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden bg-slate-50 dark:bg-slate-800 transition-all">
                     <input 
                       type="text" 
                       id="search-input" 
@@ -577,7 +608,7 @@ export default function App() {
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Pesquisar (ex: Centro, Teresina)" 
                       autoComplete="off"
-                      className="w-full px-4 py-2.5 text-slate-800 bg-transparent focus:outline-none text-sm placeholder-slate-400 font-semibold"
+                      className="w-full px-4 py-2.5 text-slate-800 dark:text-slate-200 bg-transparent focus:outline-none text-sm placeholder-slate-400 font-semibold"
                     />
                     {searchQuery && (
                       <button 
@@ -606,7 +637,7 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              <p className="text-[11px] text-slate-500 ml-1 font-medium select-none">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 ml-1 font-medium select-none">
                 💡 Dica: Use <strong>vírgula</strong> para filtrar por município (ex: <em>Cacimba, Teresina</em>).
               </p>
             </div>
@@ -620,10 +651,10 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 id="search-results-container" 
-                className="w-full bg-white rounded-2xl border border-indigo-100 shadow-xl p-4 space-y-3 z-30 relative"
+                className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-indigo-100 order-indigo-900/40 shadow-xl p-4 space-y-3 z-30 relative"
               >
                 <div className="flex justify-between items-center border-b border-indigo-50 pb-2">
-                  <small id="search-results-title" className="text-indigo-900 font-bold text-sm">
+                  <small id="search-results-title" className="text-indigo-900 dark:text-indigo-200 font-bold text-sm">
                     {isSearchLoading ? 'Buscando...' : `${totalResultsCount} resultado(s) encontrado(s)`}
                   </small>
                   <button 
@@ -641,10 +672,10 @@ export default function App() {
                       const isCollapsed = !!collapsedGroups[groupName];
                       const typedItems = items as SearchResultItem[];
                       return (
-                        <div key={groupName} className="border border-slate-100 rounded-xl overflow-hidden bg-white shadow-sm">
+                        <div key={groupName} className="border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
                           <button 
                             onClick={() => setCollapsedGroups({ ...collapsedGroups, [groupName]: !isCollapsed })}
-                            className="w-full p-3 flex justify-between items-center bg-slate-50/80 text-slate-800 hover:bg-slate-50 transition-colors font-bold text-sm border-b border-slate-100 cursor-pointer"
+                            className="w-full p-3 flex justify-between items-center bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-200 hover:bg-slate-50  transition-colors font-bold text-sm border-b border-slate-100 dark:border-slate-800 cursor-pointer"
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-indigo-800">{groupName}</span>
@@ -669,20 +700,20 @@ export default function App() {
                                   <div 
                                     key={idx}
                                     onClick={() => handleResultItemClick(groupName, item)}
-                                    className="p-3 hover:bg-indigo-50/40 cursor-pointer transition-colors text-sm pl-6 flex items-start gap-2 group"
+                                    className="p-3 hover:bg-indigo-50 dark:bg-indigo-900/40/40 cursor-pointer transition-colors text-sm pl-6 flex items-start gap-2 group"
                                   >
                                     <MapPin className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 mt-0.5 shrink-0" />
                                     <div className="flex-grow">
-                                      <p className="font-semibold text-slate-800 group-hover:text-indigo-900 transition-colors">{identifier}</p>
+                                      <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-900 indigo-200 transition-colors">{identifier}</p>
                                       {String(displayVal).toLowerCase() !== String(identifier).toLowerCase() ? (
-                                        <p className="text-xs text-slate-500 mt-0.5">
-                                          Encontrado em <strong className="text-slate-600">{fieldName}</strong>: {displayVal}
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                          Encontrado em <strong className="text-slate-600 dark:text-slate-400">{fieldName}</strong>: {displayVal}
                                         </p>
                                       ) : (
                                         <p className="text-xs text-slate-400 mt-0.5">Atributo: {fieldName}</p>
                                       )}
                                       {muniContext && String(muniContext).toLowerCase() !== String(identifier).toLowerCase() && (
-                                        <p className="text-[10px] text-indigo-600 font-bold mt-1 bg-indigo-50 px-2 py-0.5 rounded-full inline-block">
+                                        <p className="text-[10px] text-indigo-600 font-bold mt-1 bg-indigo-50 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full inline-block">
                                           Município: {muniContext}
                                         </p>
                                       )}
@@ -697,7 +728,7 @@ export default function App() {
                     })
                   ) : (
                     !isSearchLoading && (
-                      <p className="p-4 text-center text-slate-500 text-sm font-semibold bg-slate-50 rounded-xl">
+                      <p className="p-4 text-center text-slate-500 dark:text-slate-400 text-sm font-semibold bg-slate-50 dark:bg-slate-800 rounded-xl">
                         Nenhum local correspondente encontrado. Verifique a grafia ou experimente outra camada.
                       </p>
                     )
@@ -741,19 +772,19 @@ export default function App() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               id="selected-features-container" 
-              className="w-full bg-white rounded-2xl border border-slate-100 shadow-xl p-4 overflow-hidden"
+              className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl p-4 overflow-hidden"
             >
-              <h3 className="text-base sm:text-lg font-bold text-slate-800 border-l-4 border-indigo-600 pl-2.5 mb-3">
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 border-l-4 border-indigo-600 pl-2.5 mb-3">
                 Feições Selecionadas ({selectedFeatures.length})
               </h3>
               <div id="selected-features-list" className="max-h-[180px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
                 {selectedFeatures.map(feat => (
                   <div 
                     key={feat.id} 
-                    className="flex justify-between items-center p-2.5 bg-slate-50 hover:bg-indigo-50/10 border border-slate-100 rounded-xl transition-all"
+                    className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:bg-indigo-900/10 border border-slate-100 dark:border-slate-800 rounded-xl transition-all"
                   >
                     <div>
-                      <p className="font-bold text-sm text-slate-900 leading-snug">{feat.name}</p>
+                      <p className="font-bold text-sm text-slate-900 dark:text-slate-100 leading-snug">{feat.name}</p>
                       <p className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-full inline-block mt-1">
                         {feat.sourceName}
                       </p>
@@ -788,7 +819,7 @@ export default function App() {
 
       {/* RODAPÉ E PARCEIROS */}
       <footer className="w-full mt-2 text-center pb-4 select-none z-10">
-        <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-100 flex flex-col items-center gap-6">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 border border-slate-100 dark:border-slate-800 flex flex-col items-center gap-6">
           <div className="w-full flex flex-col items-center gap-3">
             <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Fontes</h4>
             <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-10">
@@ -814,12 +845,12 @@ export default function App() {
             </div>
           </div>
           
-          <div className="border-t border-slate-100 w-full pt-4 mt-2 flex flex-col items-center gap-1.5">
-            <p className="text-sm font-extrabold text-slate-700">WebGis</p>
-            <p className="text-xs text-slate-500 max-w-lg text-center leading-relaxed">
+          <div className="border-t border-slate-100 dark:border-slate-800 w-full pt-4 mt-2 flex flex-col items-center gap-1.5">
+            <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">WebGis</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg text-center leading-relaxed">
               Encontrou algum bug, tem sugestões de melhorias ou algo deu errado? Entre em contato:
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 mt-1 text-[13px] text-slate-600">
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-1 text-[13px] text-slate-600 dark:text-slate-400">
               <a 
                 href="https://wa.me/5586981689456" 
                 target="_blank" 
@@ -871,14 +902,14 @@ export default function App() {
           <div 
             id="help-modal-backdrop"
             onClick={() => setIsHelpOpen(false)}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[3000] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm z-[3000] flex items-center justify-center p-4"
           >
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               onClick={(e) => e.stopPropagation()} // Impede fechamento ao clicar dentro
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative max-h-[85vh] overflow-y-auto custom-scrollbar border border-slate-100"
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative max-h-[85vh] overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-800"
             >
               <button 
                 id="close-help" 
@@ -894,34 +925,34 @@ export default function App() {
                 Como usar o WebGis
               </h2>
 
-              <div className="space-y-4 text-slate-700 text-sm">
-                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                  <h3 className="font-extrabold text-indigo-900 mb-1 text-base flex items-center gap-1.5">🗺️ 1. Navegando no Mapa</h3>
-                  <p className="text-indigo-950/80 leading-relaxed">
+              <div className="space-y-4 text-slate-700 dark:text-slate-300 text-sm">
+                <div className="bg-indigo-50 dark:bg-indigo-900/40 p-4 rounded-xl border border-indigo-100 order-indigo-900/40">
+                  <h3 className="font-extrabold text-indigo-900 dark:text-indigo-200 mb-1 text-base flex items-center gap-1.5">🗺️ 1. Navegando no Mapa</h3>
+                  <p className="text-indigo-950/80 dark:text-indigo-200/80 leading-relaxed">
                     O mapa exibe as divisões territoriais oficiais (como Municípios, Bairros, Favelas). Use o <strong>botão de camadas flutuante no canto superior direito</strong> do mapa para Ligar/Desligar as opções e para alterar o mapa de fundo (ex: visualizar com satélite).
                   </p>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <h3 className="font-extrabold text-slate-900 mb-1 text-base flex items-center gap-1.5">🖱️ 2. Selecionando Áreas</h3>
-                  <p className="mb-2 text-slate-800 leading-relaxed">
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <h3 className="font-extrabold text-slate-900 dark:text-slate-100 mb-1 text-base flex items-center gap-1.5">🖱️ 2. Selecionando Áreas</h3>
+                  <p className="mb-2 text-slate-800 dark:text-slate-200 leading-relaxed">
                     <strong>Clique Simples:</strong> Clique em um polígono colorido para gerar automaticamente um "Raio-X" populacional instantâneo e ver detalhes precisos das áreas selecionadas na tabela inferior.
                   </p>
-                  <p className="text-slate-800 leading-relaxed">
-                    <strong>Seleção Múltipla:</strong> Ative o botão <strong>"Multiseleção"</strong> acima do mapa ou segure a tecla <kbd className="bg-white border border-slate-300 px-1.5 py-0.5 rounded shadow-sm font-mono text-xs text-slate-800">Ctrl</kbd> no teclado do computador e clique em várias regiões ao mesmo tempo para somar suas populações, domicílios e visualizar estatísticas unificadas!
+                  <p className="text-slate-800 dark:text-slate-200 leading-relaxed">
+                    <strong>Seleção Múltipla:</strong> Ative o botão <strong>"Multiseleção"</strong> acima do mapa ou segure a tecla <kbd className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 px-1.5 py-0.5 rounded shadow-sm font-mono text-xs text-slate-800 dark:text-slate-200">Ctrl</kbd> no teclado do computador e clique em várias regiões ao mesmo tempo para somar suas populações, domicílios e visualizar estatísticas unificadas!
                   </p>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <h3 className="font-extrabold text-slate-900 mb-1 text-base flex items-center gap-1.5">🔍 3. Buscas Avançadas & Geolocalização</h3>
-                  <p className="text-slate-800 leading-relaxed">
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <h3 className="font-extrabold text-slate-900 dark:text-slate-100 mb-1 text-base flex items-center gap-1.5">🔍 3. Buscas Avançadas & Geolocalização</h3>
+                  <p className="text-slate-800 dark:text-slate-200 leading-relaxed">
                     Utilize a barra de pesquisa no topo para encontrar municípios, bairros, comunidades ou coordenadas específicas.
                     <br /><strong>Busca Geográfica:</strong> Insira coordenadas precisas como Latitude e Longitude ou vice-versa (ex: <code>-5.089, -42.801</code>) e o sistema posicionará um marcador no mapa.
                     <br /><strong>Busca por Nomes:</strong> Ao buscar bairros ou povoados comuns, utilize a vírgula para especificar o município. Exemplo: <strong><code>Cacimba, Teresina</code></strong> para buscar a localidade Cacimba apenas dentro do limite de Teresina.
                   </p>
                 </div>
 
-                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                <div className="bg-emerald-50 dark:bg-emerald-900/40 p-4 rounded-xl border border-emerald-100">
                   <h3 className="font-extrabold text-emerald-900 mb-1 text-base flex items-center gap-1.5">📥 4. Exportação de Dados em Planilhas e Mapas</h3>
                   <p className="text-emerald-950/80 leading-relaxed">
                     A tabela "Especificação das Feições", no final da página, reúne todos os dados brutos das áreas selecionadas (população total, domicílios vagos, número de pessoas por residência). Você encontra nela botões dedicados para baixar e exportar os dados em <strong>CSV (Planilha do Excel)</strong> para relatórios ou em <strong>KML (Google Earth/QGIS)</strong> para realizar plotagem de mapas profissionais.

@@ -224,7 +224,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           <div class="relative flex items-center justify-center">
             <div class="absolute w-8 h-8 bg-indigo-500/30 rounded-full animate-ping"></div>
             <div class="w-5 h-5 bg-indigo-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-              <div class="w-2 h-2 bg-white rounded-full"></div>
+              <div class="w-2 h-2 bg-white dark:bg-slate-900 rounded-full"></div>
             </div>
           </div>
         `,
@@ -573,8 +573,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   return (
     <div className="space-y-4">
       {/* Botões de Ações Rápidas de Camada */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-        <div id="active-layer-display" className="w-full sm:w-auto text-center sm:text-left text-slate-700 text-sm font-semibold" aria-live="polite">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div id="active-layer-display" className="w-full sm:w-auto text-center sm:text-left text-slate-700 dark:text-slate-300 text-sm font-semibold" aria-live="polite">
           {activeLayers.length > 0 
             ? `Camadas ativas: ${activeLayers.join(', ')}` 
             : 'Camadas ativas: nenhuma'}
@@ -586,7 +586,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
               isMultiSelectMode 
                 ? 'bg-indigo-600 border-indigo-700 text-white hover:bg-indigo-700' 
-                : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
             title="Permite selecionar várias áreas tocando nelas sem precisar do teclado"
           >
@@ -595,7 +595,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           </button>
           <button 
             onClick={handleTurnAllOn}
-            className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-bold border border-indigo-200 transition-colors cursor-pointer" 
+            className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 hover:bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-bold border border-indigo-200 transition-colors cursor-pointer" 
             title="Ligar todas as camadas"
           >
             Ligar tudo
@@ -623,13 +623,13 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
         {/* Loading Overlay */}
         {isLoading && (
-          <div id="loading-overlay" className="absolute inset-0 bg-white/80 flex items-center justify-center z-[1000] rounded-2xl">
-            <div className="text-center bg-white p-6 rounded-2xl shadow-xl border border-slate-100">
+          <div id="loading-overlay" className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 flex items-center justify-center z-[1000] rounded-2xl">
+            <div className="text-center bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800">
               <svg className="animate-spin h-9 w-9 text-indigo-700 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <p id="status" className="text-slate-700 mt-3 text-sm font-bold" role="status" aria-live="polite">
+              <p id="status" className="text-slate-700 dark:text-slate-300 mt-3 text-sm font-bold" role="status" aria-live="polite">
                 {statusText}
               </p>
             </div>
@@ -640,13 +640,13 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         <div id="custom-map-controls" className="absolute top-3 right-3 z-[999] flex flex-col items-end gap-2 max-w-[280px] sm:max-w-[320px]">
           
           {/* 1. Seletor de Mapa de Fundo */}
-          <div className="bg-white rounded-xl shadow-lg border border-slate-200/80 p-2.5 flex gap-2.5 items-center backdrop-blur-md">
-            <label htmlFor="basemap-select" className="text-xs text-slate-700 font-bold uppercase tracking-wider">Fundo</label>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 p-2.5 flex gap-2.5 items-center backdrop-blur-md">
+            <label htmlFor="basemap-select" className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider">Fundo</label>
             <select 
               id="basemap-select" 
               value={basemap}
               onChange={(e) => setBasemap(e.target.value)}
-              className="text-xs border border-slate-300 rounded-md px-2 py-1 bg-slate-50 font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="text-xs border border-slate-300 dark:border-slate-600 rounded-md px-2 py-1 bg-slate-50 dark:bg-slate-800 font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="osm">OSM Padrão</option>
               <option value="googleSat">Google Satélite</option>
@@ -663,7 +663,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
               className={`p-3 rounded-xl shadow-lg border transition-all flex items-center justify-center cursor-pointer ${
                 layersPanelOpen 
                   ? 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700' 
-                  : 'bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80 hover:bg-slate-50 800'
               }`}
               title="Alternar painel de camadas"
               aria-expanded={layersPanelOpen}
@@ -672,18 +672,18 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             </button>
 
             {layersPanelOpen && (
-              <div id="layers-panel" className="bg-white rounded-xl shadow-2xl mt-2 w-[260px] sm:w-[300px] border border-slate-200 overflow-hidden flex flex-col max-h-[380px]">
+              <div id="layers-panel" className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl mt-2 w-[260px] sm:w-[300px] border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[380px]">
                 {/* Cabeçalho do Painel */}
-                <div className="p-2 border-b border-slate-100 flex gap-1 bg-slate-50 shrink-0">
+                <div className="p-2 border-b border-slate-100 dark:border-slate-800 flex gap-1 bg-slate-50 dark:bg-slate-800 shrink-0">
                   <button 
                     onClick={() => toggleAllDetails(true)} 
-                    className="flex-grow px-2 py-1 bg-white border border-slate-200 hover:bg-slate-50 rounded text-[11px] font-bold text-slate-700 cursor-pointer"
+                    className="flex-grow px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 800 rounded text-[11px] font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
                   >
                     Expandir
                   </button>
                   <button 
                     onClick={() => toggleAllDetails(false)} 
-                    className="flex-grow px-2 py-1 bg-white border border-slate-200 hover:bg-slate-50 rounded text-[11px] font-bold text-slate-700 cursor-pointer"
+                    className="flex-grow px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 800 rounded text-[11px] font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
                   >
                     Recolher
                   </button>
@@ -696,7 +696,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
                     const isActive = activeLayers.includes(source.name);
 
                     return (
-                      <div key={source.name} className="border border-slate-100 rounded-lg overflow-hidden bg-white hover:border-slate-200/60 transition-colors">
+                      <div key={source.name} className="border border-slate-100 dark:border-slate-800 rounded-lg overflow-hidden bg-white dark:bg-slate-900 hover:border-slate-200 700/60 transition-colors">
                         <div className="flex items-center justify-between p-2">
                           <div className="flex items-center gap-2">
                             <input 
@@ -704,11 +704,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
                               id={`layer-${source.name}`} 
                               checked={isActive}
                               onChange={() => toggleLayerActive(source.name)}
-                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
+                              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
                             />
                             <label 
                               htmlFor={`layer-${source.name}`} 
-                              className={`text-xs font-semibold cursor-pointer ${isActive ? 'text-indigo-900 font-bold' : 'text-slate-600'}`}
+                              className={`text-xs font-semibold cursor-pointer ${isActive ? 'text-indigo-900 dark:text-indigo-200 font-bold' : 'text-slate-600 slate-400'}`}
                             >
                               {source.name}
                             </label>
@@ -717,14 +717,14 @@ export const MapComponent: React.FC<MapComponentProps> = ({
                           <div className="flex items-center gap-1.5">
                             <button 
                               onClick={() => zoomToLayer(source)}
-                              className="p-1 text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 rounded cursor-pointer" 
+                              className="p-1 text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 dark:bg-indigo-900/40 rounded cursor-pointer" 
                               title={`Centralizar em ${source.name}`}
                             >
                               <ZoomIn className="w-3.5 h-3.5" />
                             </button>
                             <button 
                               onClick={() => setExpandedDetails(prev => ({ ...prev, [source.name]: !isOpen }))}
-                              className="text-slate-400 hover:text-slate-700 font-mono text-xs font-bold px-1 py-0.5 rounded"
+                              className="text-slate-400 hover:text-slate-700 dark:text-slate-300 font-mono text-xs font-bold px-1 py-0.5 rounded"
                             >
                               {isOpen ? '−' : '+'}
                             </button>
@@ -732,8 +732,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
                         </div>
 
                         {isOpen && (
-                          <div className="px-3 pb-2.5 pt-1 bg-slate-50/50 border-t border-slate-50 flex flex-col gap-1">
-                            <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
+                          <div className="px-3 pb-2.5 pt-1 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-50 flex flex-col gap-1">
+                            <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-bold">
                               <span>Opacidade</span>
                               <span>{Math.round(layerOpacities[source.name] * 100)}%</span>
                             </div>
@@ -744,7 +744,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
                               step="0.1" 
                               value={layerOpacities[source.name]} 
                               onChange={(e) => handleOpacityChange(source.name, parseFloat(e.target.value))}
-                              className="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer" 
+                              className="w-full accent-indigo-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer" 
                             />
                           </div>
                         )}
@@ -765,9 +765,9 @@ export const MapComponent: React.FC<MapComponentProps> = ({
               left: `${contextMenu.x}px`, 
               top: `${contextMenu.y}px` 
             }} 
-            className="fixed z-[4000] bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 w-60 text-sm overflow-hidden transition-all duration-150 origin-top-left"
+            className="fixed z-[4000] bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1.5 w-60 text-sm overflow-hidden transition-all duration-150 origin-top-left"
           >
-            <div className="px-4 py-2 border-b border-slate-100 bg-slate-50">
+            <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Coordenadas do Ponto</p>
               <p id="context-coords-display" className="font-mono text-xs text-indigo-700 font-semibold break-all">
                 {contextMenu.lat.toFixed(6)}, {contextMenu.lng.toFixed(6)}
@@ -776,27 +776,27 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             
             <button 
               onClick={() => copyCoords('all')}
-              className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 transition-colors flex items-center gap-2 font-medium cursor-pointer"
+              className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 dark:bg-indigo-900/40 text-slate-700 dark:text-slate-300 hover:text-indigo-700 transition-colors flex items-center gap-2 font-medium cursor-pointer"
             >
               <Copy className="h-4 w-4 text-slate-400" />
               Copiar Lat e Long
             </button>
             <button 
               onClick={() => copyCoords('lat')}
-              className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 transition-colors flex items-center gap-2 font-medium cursor-pointer"
+              className="w-full text-left px-4 py-2 hover:bg-indigo-50 dark:bg-indigo-900/40 text-slate-700 dark:text-slate-300 hover:text-indigo-700 transition-colors flex items-center gap-2 font-medium cursor-pointer"
             >
               <span className="w-4" />
               Copiar apenas Latitude
             </button>
             <button 
               onClick={() => copyCoords('lng')}
-              className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 transition-colors flex items-center gap-2 font-medium cursor-pointer"
+              className="w-full text-left px-4 py-2 hover:bg-indigo-50 dark:bg-indigo-900/40 text-slate-700 dark:text-slate-300 hover:text-indigo-700 transition-colors flex items-center gap-2 font-medium cursor-pointer"
             >
               <span className="w-4" />
               Copiar apenas Longitude
             </button>
             
-            <div className="h-px bg-slate-200 my-1"></div>
+            <div className="h-px bg-slate-200 dark:bg-slate-700 my-1"></div>
             
             <a 
               id="ctx-street-view" 
@@ -804,7 +804,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
               target="_blank" 
               rel="noreferrer"
               onClick={() => setContextMenu(prev => ({ ...prev, visible: false }))}
-              className="w-full text-left px-4 py-2.5 hover:bg-emerald-50 text-emerald-700 transition-colors flex items-center gap-2 font-bold flex"
+              className="w-full text-left px-4 py-2.5 hover:bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 transition-colors flex items-center gap-2 font-bold flex"
             >
               <Compass className="h-4 w-4" />
               Abrir no Street View

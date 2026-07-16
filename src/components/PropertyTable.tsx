@@ -57,7 +57,7 @@ export const PropertyTable: React.FC<PropertyTableProps> = ({ selectedFeatures, 
   };
 
   return (
-    <div id="info-table-container" className="w-full bg-white rounded-2xl shadow-xl p-4 border border-gray-100">
+    <div id="info-table-container" className="w-full bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-4 border border-gray-100">
       <h3 className="text-lg font-bold text-gray-800 mb-2">Especificação das Feições</h3>
       
       <div className="flex flex-col gap-3 mb-4">
@@ -82,11 +82,11 @@ export const PropertyTable: React.FC<PropertyTableProps> = ({ selectedFeatures, 
         </div>
 
         {/* Caixa de ajuda de Exportação de CSV */}
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs md:text-sm text-emerald-950 flex items-start gap-2.5 max-w-3xl">
+        <div className="bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 rounded-xl p-4 text-xs md:text-sm text-emerald-950 flex items-start gap-2.5 max-w-3xl">
           <Info className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold text-emerald-900 block mb-1">📋 Evite colunas misturadas ao abrir o CSV no Excel:</span>
-            <p className="text-slate-600 leading-relaxed text-xs">
+            <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-xs">
               Se as colunas abrirem sobrepostas, faça o seguinte no Excel:
               <br /><strong>Abra uma pasta de trabalho em branco &gt; vá na guia superior Dados &gt; clique em Obter Dados de Texto/CSV</strong> e selecione o arquivo baixado. O Excel organizará tudo de forma perfeita!
             </p>
@@ -102,7 +102,7 @@ export const PropertyTable: React.FC<PropertyTableProps> = ({ selectedFeatures, 
               <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Valor</th>
             </tr>
           </thead>
-          <tbody id="info-table-body" className="bg-white divide-y divide-gray-200">
+          <tbody id="info-table-body" className="bg-white dark:bg-slate-900 divide-y divide-gray-200">
             {count === 1 ? (
               // EXIBIÇÃO DE ITEM ÚNICO
               (() => {
@@ -127,16 +127,16 @@ export const PropertyTable: React.FC<PropertyTableProps> = ({ selectedFeatures, 
                   const lngStr = center.lng.toFixed(6);
                   const fullCoords = `${latStr}, ${lngStr}`;
                   rows.push(
-                    <tr key="coords-row" className="hover:bg-gray-50 bg-slate-50 border-b border-gray-200">
+                    <tr key="coords-row" className="hover:bg-gray-50 bg-slate-50 dark:bg-slate-800 border-b border-gray-200">
                       <td className="px-6 py-3 text-sm font-bold text-indigo-700 max-w-[240px]">
                         Coordenadas (Centro Territorial)
                         <p className="text-[10px] font-normal text-slate-400 italic mt-0.5 leading-tight">
                           *Refere-se ao centro geográfico (centroide) do polígono territorial selecionado.
                         </p>
                       </td>
-                      <td className="px-6 py-3 text-sm text-slate-700">
+                      <td className="px-6 py-3 text-sm text-slate-700 dark:text-slate-300">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono bg-indigo-50 px-2 py-1 rounded text-xs text-indigo-800 font-semibold">{fullCoords}</span>
+                          <span className="font-mono bg-indigo-50 dark:bg-indigo-900/40 px-2 py-1 rounded text-xs text-indigo-800 font-semibold">{fullCoords}</span>
                           <div className="flex gap-1">
                             <button 
                               onClick={() => handleCopy(latStr, 'Latitude')}
@@ -185,9 +185,9 @@ export const PropertyTable: React.FC<PropertyTableProps> = ({ selectedFeatures, 
                   const isHighlighted = key === 'NM_MUN' || key === 'NM_BAIRRO' || key === 'Nome';
 
                   rows.push(
-                    <tr key={`prop-${key}`} className={`hover:bg-gray-50 ${isHighlighted ? 'bg-indigo-50/20 font-bold' : ''}`}>
-                      <td className="px-6 py-2 font-medium text-slate-800">{disp}</td>
-                      <td className="px-6 py-2 text-slate-700">{translatedVal}</td>
+                    <tr key={`prop-${key}`} className={`hover:bg-gray-50 ${isHighlighted ? 'bg-indigo-50 dark:bg-indigo-900/40/20 font-bold' : ''}`}>
+                      <td className="px-6 py-2 font-medium text-slate-800 dark:text-slate-200">{disp}</td>
+                      <td className="px-6 py-2 text-slate-700 dark:text-slate-300">{translatedVal}</td>
                     </tr>
                   );
                 });
@@ -195,16 +195,16 @@ export const PropertyTable: React.FC<PropertyTableProps> = ({ selectedFeatures, 
                 // 3. Métricas adicionadas pelo painel
                 rows.push(
                   <tr key="calc-vagos" className="hover:bg-gray-50">
-                    <td className="px-6 py-2 font-medium text-slate-800">Total de Domicílios Vagos</td>
-                    <td className="px-6 py-2 text-slate-700">{domVagos.toLocaleString('pt-BR')}</td>
+                    <td className="px-6 py-2 font-medium text-slate-800 dark:text-slate-200">Total de Domicílios Vagos</td>
+                    <td className="px-6 py-2 text-slate-700 dark:text-slate-300">{domVagos.toLocaleString('pt-BR')}</td>
                   </tr>,
                   <tr key="calc-vacancia" className="hover:bg-gray-50">
-                    <td className="px-6 py-2 font-medium text-slate-800">Taxa de Vacância</td>
-                    <td className="px-6 py-2 text-slate-700">{taxaVac}%</td>
+                    <td className="px-6 py-2 font-medium text-slate-800 dark:text-slate-200">Taxa de Vacância</td>
+                    <td className="px-6 py-2 text-slate-700 dark:text-slate-300">{taxaVac}%</td>
                   </tr>,
                   <tr key="calc-densidade" className="hover:bg-gray-50 border-t border-gray-100">
-                    <td className="px-6 py-2 font-semibold text-indigo-900 bg-indigo-50/5">Média de Moradores por Domicílio (Densidade)</td>
-                    <td className="px-6 py-2 font-bold text-indigo-900 bg-indigo-50/5">{densidade}</td>
+                    <td className="px-6 py-2 font-semibold text-indigo-900 dark:text-indigo-200 bg-indigo-50 dark:bg-indigo-900/40/5">Média de Moradores por Domicílio (Densidade)</td>
+                    <td className="px-6 py-2 font-bold text-indigo-900 dark:text-indigo-200 bg-indigo-50 dark:bg-indigo-900/40/5">{densidade}</td>
                   </tr>
                 );
 
@@ -250,14 +250,14 @@ export const PropertyTable: React.FC<PropertyTableProps> = ({ selectedFeatures, 
 
                 return (
                   <>
-                    <tr className="bg-indigo-50/50">
-                      <td className="px-6 py-3 font-bold text-indigo-900">Total Consolidado</td>
-                      <td className="px-6 py-3 font-bold text-indigo-900">{count} áreas territoriais selecionadas</td>
+                    <tr className="bg-indigo-50 dark:bg-indigo-900/40/50">
+                      <td className="px-6 py-3 font-bold text-indigo-900 dark:text-indigo-200">Total Consolidado</td>
+                      <td className="px-6 py-3 font-bold text-indigo-900 dark:text-indigo-200">{count} áreas territoriais selecionadas</td>
                     </tr>
                     {metrics.map((m, idx) => (
                       <tr key={`metric-${idx}`} className="hover:bg-gray-50">
-                        <td className="px-6 py-2 font-medium text-slate-800">{m.label}</td>
-                        <td className="px-6 py-2 text-slate-700 font-semibold">{m.val}</td>
+                        <td className="px-6 py-2 font-medium text-slate-800 dark:text-slate-200">{m.label}</td>
+                        <td className="px-6 py-2 text-slate-700 dark:text-slate-300 font-semibold">{m.val}</td>
                       </tr>
                     ))}
                   </>

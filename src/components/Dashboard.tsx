@@ -70,9 +70,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ selectedFeatures }) => {
   const densidade = sumDomOcup > 0 ? (sumPop / sumDomOcup).toFixed(2) : '0.00';
 
   return (
-    <div id="dashboard-container" className="w-full bg-slate-50 rounded-2xl shadow-xl p-6 border border-slate-200">
+    <div id="dashboard-container" className="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-700">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-slate-800 border-l-4 border-indigo-600 pl-3">
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 border-l-4 border-indigo-600 pl-3">
           Raio-X Territorial e Domiciliar: <span id="dash-local-name" className="text-indigo-600 font-normal">{title}</span>
         </h2>
       </div>
@@ -81,18 +81,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ selectedFeatures }) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: População */}
         <div 
-          className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center hover:shadow-md transition-shadow cursor-help" 
+          className="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center hover:shadow-md transition-shadow cursor-help" 
           title="Soma total de habitantes residentes na área selecionada."
         >
           <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
             <Users className="h-8 w-8" />
           </div>
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wide flex items-center gap-1 font-semibold">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1 font-semibold">
               População Total 
-              <span className="text-[10px] bg-slate-100 px-1.5 rounded-full text-slate-400 font-bold">?</span>
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-800/80 px-1.5 rounded-full text-slate-400 font-bold">?</span>
             </p>
-            <p id="dash-pop" className="text-2xl font-extrabold text-slate-800">
+            <p id="dash-pop" className="text-2xl font-extrabold text-slate-800 dark:text-slate-200">
               {sumPop.toLocaleString('pt-BR')}
             </p>
             <p id="dash-dens" className="text-xs text-indigo-500 font-semibold mt-0.5">
@@ -103,18 +103,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ selectedFeatures }) => {
 
         {/* KPI 2: Domicílios */}
         <div 
-          className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center hover:shadow-md transition-shadow cursor-help" 
+          className="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center hover:shadow-md transition-shadow cursor-help" 
           title="Soma de todos os domicílios particulares e coletivos cadastrados no censo para esta área."
         >
           <div className="p-3 rounded-full bg-emerald-100 text-emerald-600 mr-4">
             <Home className="h-8 w-8" />
           </div>
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wide flex items-center gap-1 font-semibold">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1 font-semibold">
               Total Domicílios 
-              <span className="text-[10px] bg-slate-100 px-1.5 rounded-full text-slate-400 font-bold">?</span>
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-800/80 px-1.5 rounded-full text-slate-400 font-bold">?</span>
             </p>
-            <p id="dash-dom-total" className="text-2xl font-extrabold text-slate-800">
+            <p id="dash-dom-total" className="text-2xl font-extrabold text-slate-800 dark:text-slate-200">
               {sumDomTotal.toLocaleString('pt-BR')}
             </p>
             <p className="text-xs text-slate-400 mt-0.5 font-medium">Cadastrados</p>
@@ -123,7 +123,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ selectedFeatures }) => {
 
         {/* KPI 3: Vacância */}
         <div 
-          className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center hover:shadow-md transition-shadow relative overflow-hidden cursor-help" 
+          className="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center hover:shadow-md transition-shadow relative overflow-hidden cursor-help" 
           title="Domicílios identificados como vagos ou de uso ocasional no momento do recenseamento."
         >
           <div className="absolute right-0 top-0 h-full w-1 bg-orange-500"></div>
@@ -131,9 +131,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ selectedFeatures }) => {
             <ShieldAlert className="h-8 w-8" />
           </div>
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wide flex items-center gap-1 font-semibold">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1 font-semibold">
               Vagos / Ocasional 
-              <span className="text-[10px] bg-slate-100 px-1.5 rounded-full text-slate-400 font-bold">?</span>
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-800/80 px-1.5 rounded-full text-slate-400 font-bold">?</span>
             </p>
             <p id="dash-vagos" className="text-2xl font-extrabold text-orange-600">
               {sumVagos.toLocaleString('pt-BR')}
@@ -146,18 +146,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ selectedFeatures }) => {
 
         {/* KPI 4: Coletivos */}
         <div 
-          className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center hover:shadow-md transition-shadow cursor-help" 
+          className="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center hover:shadow-md transition-shadow cursor-help" 
           title="Instituições como asilos, prisões, quartéis, hospitais, alojamentos etc."
         >
-          <div className="p-3 rounded-full bg-slate-100 text-slate-600 mr-4">
+          <div className="p-3 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 mr-4">
             <Building className="h-8 w-8" />
           </div>
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wide flex items-center gap-1 font-semibold">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1 font-semibold">
               Dom. Coletivos 
-              <span className="text-[10px] bg-slate-100 px-1.5 rounded-full text-slate-400 font-bold">?</span>
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-800/80 px-1.5 rounded-full text-slate-400 font-bold">?</span>
             </p>
-            <p id="dash-coletivos" className="text-2xl font-extrabold text-slate-800">
+            <p id="dash-coletivos" className="text-2xl font-extrabold text-slate-800 dark:text-slate-200">
               {sumDomCol.toLocaleString('pt-BR')}
             </p>
             <p className="text-xs text-slate-400 mt-0.5 font-medium">Instituições</p>
