@@ -22,6 +22,9 @@ import { SelectedFeature, GroupedSearchResults, SearchResultItem } from './types
 import { dataSources, PRIORITY_KEYS, propertyNames } from './data';
 import { normalizeString, levenshteinDistance, getIdentifier, getTranslatedValue } from './utils';
 
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import { point } from '@turf/helpers';
+
 export default function App() {
   const [hasEntered, setHasEntered] = useState<boolean>(false);
 
@@ -129,64 +132,38 @@ export default function App() {
     const coordRegex = /^\s*(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)\s*$/;
     const coordMatch = rawInput.match(coordRegex);
 
+    let isCoordSearch = false;
+    let searchLat = 0;
+    let searchLng = 0;
+
     if (coordMatch) {
-      const lat = parseFloat(coordMatch[1]);
-      const lng = parseFloat(coordMatch[3]);
-      
-      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-        setSearchCoordinate({ lat, lng });
-        
-        const tempResults: GroupedSearchResults = {
-          "Coordenadas": [
-            {
-              polygonLayer: {
-                feature: {
-                  type: "Feature",
-                  properties: {
-                    "Nome": `Coordenada: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                    "Latitude": lat.toFixed(6),
-                    "Longitude": lng.toFixed(6),
-                    "Tipo": "Busca de Coordenada"
-                  }
-                },
-                getBounds: () => L.latLng(lat, lng).toBounds(100),
-                getLatLng: () => L.latLng(lat, lng),
-                openPopup: () => {}
-              } as any,
-              value: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-              key: "Coordenada",
-              distance: 0
-            }
-          ]
-        };
-        
-        setSearchResults(tempResults);
-        setTotalResultsCount(1);
-        setCollapsedGroups({ "Coordenadas": false });
-        setIsSearchLoading(false);
-        setIsSearchResultsVisible(true);
-        showToast(`Coordenada localizada: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-        return;
+      searchLat = parseFloat(coordMatch[1]);
+      searchLng = parseFloat(coordMatch[3]);
+      if (!isNaN(searchLat) && !isNaN(searchLng) && searchLat >= -90 && searchLat <= 90 && searchLng >= -180 && searchLng <= 180) {
+        isCoordSearch = true;
+        setSearchCoordinate({ lat: searchLat, lng: searchLng });
       }
     }
 
     let primaryTerm = '';
     let municipalityFilter: string | null = null;
 
-    // Tratar a detecção de vírgula (ex: "Cacimba, Teresina")
-    if (rawInput.includes(',')) {
-      const parts = rawInput.split(',');
-      primaryTerm = normalizeString(parts[0].trim());
-      municipalityFilter = normalizeString(parts[1].trim());
-      if (municipalityFilter === '') municipalityFilter = null;
-    } else {
-      primaryTerm = normalizeString(rawInput);
-    }
+    if (!isCoordSearch) {
+      // Tratar a detecção de vírgula (ex: "Cacimba, Teresina")
+      if (rawInput.includes(',')) {
+        const parts = rawInput.split(',');
+        primaryTerm = normalizeString(parts[0].trim());
+        municipalityFilter = normalizeString(parts[1].trim());
+        if (municipalityFilter === '') municipalityFilter = null;
+      } else {
+        primaryTerm = normalizeString(rawInput);
+      }
 
-    if (!primaryTerm) {
-      setIsSearchLoading(false);
-      setIsSearchResultsVisible(false);
-      return;
+      if (!primaryTerm) {
+        setIsSearchLoading(false);
+        setIsSearchResultsVisible(false);
+        return;
+      }
     }
 
     try {
@@ -217,33 +194,94 @@ export default function App() {
       const tempResults: GroupedSearchResults = {};
       let countFound = 0;
 
-      // 1. Busca Exata/Inclusiva direta nas propriedades
-      for (const step of layersToSearch) {
-        const geoJsonLayer = await step.loader();
-        const matches: SearchResultItem[] = [];
-
-        geoJsonLayer.eachLayer((poly: any) => {
-          if (!poly.feature || !poly.feature.properties) return;
-          const props = poly.feature.properties;
-          const hit = featureMatches(primaryTerm, municipalityFilter, props);
-          if (hit) {
-            matches.push({
-              polygonLayer: poly,
-              value: hit.value,
-              key: hit.key,
-              distance: hit.distance
-            });
+      if (isCoordSearch) {
+        const searchPoint = point([searchLng, searchLat]);
+        
+        // Adiciona um item correspondente à coordenada em si
+        tempResults["Coordenadas"] = [
+          {
+            polygonLayer: {
+              feature: {
+                type: "Feature",
+                properties: {
+                  "Nome": `Coordenada: ${searchLat.toFixed(6)}, ${searchLng.toFixed(6)}`,
+                  "Latitude": searchLat.toFixed(6),
+                  "Longitude": searchLng.toFixed(6),
+                  "Tipo": "Busca de Coordenada"
+                }
+              },
+              getBounds: () => L.latLng(searchLat, searchLng).toBounds(100),
+              getLatLng: () => L.latLng(searchLat, searchLng),
+              openPopup: () => {}
+            } as any,
+            value: `${searchLat.toFixed(6)}, ${searchLng.toFixed(6)}`,
+            key: "Coordenada",
+            distance: 0
           }
-        });
+        ];
+        countFound += 1;
 
-        if (matches.length > 0) {
-          tempResults[step.name] = matches;
-          countFound += matches.length;
+        // Busca espacial nas camadas por interseção de ponto
+        for (const step of layersToSearch) {
+          const geoJsonLayer = await step.loader();
+          const matches: SearchResultItem[] = [];
+
+          geoJsonLayer.eachLayer((poly: any) => {
+            if (!poly.feature || !poly.feature.geometry) return;
+            
+            try {
+              // Verifica a interseção baseada no tipo geométrico
+              if (poly.feature.geometry.type === 'Polygon' || poly.feature.geometry.type === 'MultiPolygon') {
+                if (booleanPointInPolygon(searchPoint, poly.feature)) {
+                  const identifier = getIdentifier(poly.feature.properties);
+                  matches.push({
+                    polygonLayer: poly,
+                    value: identifier,
+                    key: 'Área Encontrada',
+                    distance: 0
+                  });
+                }
+              }
+            } catch (err) {
+              // Ignore invalid geometries or turf calculation errors
+            }
+          });
+
+          if (matches.length > 0) {
+            tempResults[step.name] = matches;
+            countFound += matches.length;
+          }
+        }
+        showToast(`Buscando feições para a coordenada: ${searchLat.toFixed(6)}, ${searchLng.toFixed(6)}`);
+      } else {
+        // 1. Busca Exata/Inclusiva direta nas propriedades
+        for (const step of layersToSearch) {
+          const geoJsonLayer = await step.loader();
+          const matches: SearchResultItem[] = [];
+
+          geoJsonLayer.eachLayer((poly: any) => {
+            if (!poly.feature || !poly.feature.properties) return;
+            const props = poly.feature.properties;
+            const hit = featureMatches(primaryTerm, municipalityFilter, props);
+            if (hit) {
+              matches.push({
+                polygonLayer: poly,
+                value: hit.value,
+                key: hit.key,
+                distance: hit.distance
+              });
+            }
+          });
+
+          if (matches.length > 0) {
+            tempResults[step.name] = matches;
+            countFound += matches.length;
+          }
         }
       }
 
       // 2. Busca Fuzzy (Fuzzy Match com distância de Levenshtein) se nenhum resultado exato for encontrado
-      if (countFound === 0 && primaryTerm.length >= 4) {
+      if (!isCoordSearch && countFound === 0 && primaryTerm.length >= 4) {
         const FUZZY_LIMIT = 120;
         let fuzzyCount = 0;
 
@@ -501,7 +539,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <img 
               src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-Photoroom.png" 
-              alt="Logo GeoCode" 
+              alt="Logo WebGis" 
               className="h-14 sm:h-16 hover:scale-105 transition-transform" 
             />
           </div>
@@ -745,33 +783,53 @@ export default function App() {
       {/* RODAPÉ E PARCEIROS */}
       <footer className="w-full mt-2 text-center pb-4 select-none z-10">
         <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-100 flex flex-col items-center gap-6">
-          <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-10">
-            <img 
-              src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/IBGE.png" 
-              alt="Logo IBGE" 
-              className="h-7 sm:h-9 object-contain hover:scale-105 transition-transform"
-            />
-            <img 
-              src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/web/main/geojsom/SSP.png" 
-              alt="Logo SSP" 
-              className="h-11 sm:h-14 object-contain hover:scale-105 transition-transform"
-              onError={(e) => {
-                // Fallback caso a URL SSP original mude
-                (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-removebg-preview.png';
-              }}
-            />
-            <img 
-              src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-Photoroom.png" 
-              alt="Logo Gerência de Dados" 
-              className="h-11 sm:h-14 object-contain hover:scale-105 transition-transform"
-            />
+          <div className="w-full flex flex-col items-center gap-3">
+            <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Fontes</h4>
+            <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-10">
+              <img 
+                src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/IBGE.png" 
+                alt="Logo IBGE" 
+                className="h-5 sm:h-7 object-contain hover:scale-105 transition-transform"
+              />
+              <img 
+                src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/web/main/geojsom/SSP.png" 
+                alt="Logo SSP" 
+                className="h-8 sm:h-10 object-contain hover:scale-105 transition-transform"
+                onError={(e) => {
+                  // Fallback caso a URL SSP original mude
+                  (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-removebg-preview.png';
+                }}
+              />
+              <img 
+                src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-Photoroom.png" 
+                alt="Logo Gerência de Dados" 
+                className="h-8 sm:h-10 object-contain hover:scale-105 transition-transform"
+              />
+            </div>
           </div>
           
-          <div className="border-t border-slate-100 w-full pt-4 mt-2">
-            <p className="text-xs sm:text-sm font-extrabold text-slate-700">WesGis - Desenvolvido por Marcio Silva</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Contato: <a href="mailto:marciodemelosilva.geo@gmail.com" className="hover:text-indigo-600 font-semibold transition-colors underline">marciodemelosilva.geo@gmail.com</a>
+          <div className="border-t border-slate-100 w-full pt-4 mt-2 flex flex-col items-center gap-1.5">
+            <p className="text-sm font-extrabold text-slate-700">WebGis</p>
+            <p className="text-xs text-slate-500 max-w-lg text-center leading-relaxed">
+              Encontrou algum bug, tem sugestões de melhorias ou algo deu errado? Entre em contato:
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-1 text-[13px] text-slate-600">
+              <a 
+                href="https://wa.me/5586981689456" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:text-emerald-600 font-bold transition-colors underline decoration-emerald-300 underline-offset-2"
+              >
+                (86) 98168-9456
+              </a>
+              <span className="text-slate-300">•</span>
+              <a 
+                href="mailto:marciodemelosilva.geo@gmail.com" 
+                className="hover:text-indigo-600 font-bold transition-colors underline decoration-indigo-300 underline-offset-2"
+              >
+                marciodemelosilva.geo@gmail.com
+              </a>
+            </div>
           </div>
         </div>
       </footer>
@@ -827,39 +885,40 @@ export default function App() {
 
               <h2 className="text-2xl font-black text-indigo-700 mb-4 flex items-center gap-2 border-b border-indigo-50 pb-3">
                 <HelpCircle className="w-6 h-6 text-indigo-600" />
-                Como usar o GeoCode
+                Como usar o WebGis
               </h2>
 
               <div className="space-y-4 text-slate-700 text-sm">
                 <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
                   <h3 className="font-extrabold text-indigo-900 mb-1 text-base flex items-center gap-1.5">🗺️ 1. Navegando no Mapa</h3>
                   <p className="text-indigo-950/80 leading-relaxed">
-                    O mapa exibe as divisões territoriais oficiais. Use o <strong>botão de camadas flutuante no canto superior direito</strong> do mapa para Ligar/Desligar as opções (Municípios, Bairros, Favelas, etc.) e para alterar o mapa de fundo (ex: satélite).
+                    O mapa exibe as divisões territoriais oficiais (como Municípios, Bairros, Favelas). Use o <strong>botão de camadas flutuante no canto superior direito</strong> do mapa para Ligar/Desligar as opções e para alterar o mapa de fundo (ex: visualizar com satélite).
                   </p>
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                   <h3 className="font-extrabold text-slate-900 mb-1 text-base flex items-center gap-1.5">🖱️ 2. Selecionando Áreas</h3>
                   <p className="mb-2 text-slate-800 leading-relaxed">
-                    <strong>Clique Simples:</strong> Clique em um polígono colorido para gerar automaticamente um "Raio-X" populacional e ver os detalhes de propriedades da tabela inferior.
+                    <strong>Clique Simples:</strong> Clique em um polígono colorido para gerar automaticamente um "Raio-X" populacional instantâneo e ver detalhes precisos das áreas selecionadas na tabela inferior.
                   </p>
                   <p className="text-slate-800 leading-relaxed">
-                    <strong>Seleção Múltipla:</strong> Ative o botão <strong>"Multiseleção"</strong> (ideal para celulares/telas de toque) ou segure a tecla <kbd className="bg-white border border-slate-300 px-1.5 py-0.5 rounded shadow-sm font-mono text-xs text-slate-800">Ctrl</kbd> no teclado do computador e clique em várias regiões ao mesmo tempo para somar as populações e domicílios instantaneamente!
+                    <strong>Seleção Múltipla:</strong> Ative o botão <strong>"Multiseleção"</strong> acima do mapa ou segure a tecla <kbd className="bg-white border border-slate-300 px-1.5 py-0.5 rounded shadow-sm font-mono text-xs text-slate-800">Ctrl</kbd> no teclado do computador e clique em várias regiões ao mesmo tempo para somar suas populações, domicílios e visualizar estatísticas unificadas!
                   </p>
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <h3 className="font-extrabold text-slate-900 mb-1 text-base flex items-center gap-1.5">🔍 3. Buscas Avançadas</h3>
+                  <h3 className="font-extrabold text-slate-900 mb-1 text-base flex items-center gap-1.5">🔍 3. Buscas Avançadas & Geolocalização</h3>
                   <p className="text-slate-800 leading-relaxed">
-                    Utilize a barra no topo para encontrar municípios, bairros ou comunidades. 
-                    <br /><strong>Dica de Ouro:</strong> Se o nome for comum, use uma vírgula para especificar o município. Exemplo: digite <strong><code>Cacimba, Teresina</code></strong> para buscar a localidade Cacimba apenas dentro de Teresina.
+                    Utilize a barra de pesquisa no topo para encontrar municípios, bairros, comunidades ou coordenadas específicas.
+                    <br /><strong>Busca Geográfica:</strong> Insira coordenadas precisas como Latitude e Longitude ou vice-versa (ex: <code>-5.089, -42.801</code>) e o sistema posicionará um marcador no mapa.
+                    <br /><strong>Busca por Nomes:</strong> Ao buscar bairros ou povoados comuns, utilize a vírgula para especificar o município. Exemplo: <strong><code>Cacimba, Teresina</code></strong> para buscar a localidade Cacimba apenas dentro do limite de Teresina.
                   </p>
                 </div>
 
                 <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                  <h3 className="font-extrabold text-emerald-900 mb-1 text-base flex items-center gap-1.5">📥 4. Exportação de Dados</h3>
+                  <h3 className="font-extrabold text-emerald-900 mb-1 text-base flex items-center gap-1.5">📥 4. Exportação de Dados em Planilhas e Mapas</h3>
                   <p className="text-emerald-950/80 leading-relaxed">
-                    Após selecionar feições ou fazer uma busca, role a página até a tabela de "Especificação das Feições". Lá você encontrará botões dedicados para baixar os dados compilados em <strong>CSV</strong> (planilha do Excel) ou <strong>KML</strong> (Google Earth).
+                    A tabela "Especificação das Feições", no final da página, reúne todos os dados brutos das áreas selecionadas (população total, domicílios vagos, número de pessoas por residência). Você encontra nela botões dedicados para baixar e exportar os dados em <strong>CSV (Planilha do Excel)</strong> para relatórios ou em <strong>KML (Google Earth/QGIS)</strong> para realizar plotagem de mapas profissionais.
                   </p>
                 </div>
               </div>
