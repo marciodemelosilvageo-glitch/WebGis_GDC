@@ -1,0 +1,898 @@
+import { useState, useEffect, useRef } from 'react';
+import { 
+  Search, 
+  X, 
+  HelpCircle, 
+  MousePointerClick, 
+  ZoomIn, 
+  Trash2, 
+  ChevronDown, 
+  ChevronUp, 
+  MapPin, 
+  Info,
+  Check
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import L from 'leaflet';
+
+import { MapComponent } from './components/MapComponent';
+import { Dashboard } from './components/Dashboard';
+import { PropertyTable } from './components/PropertyTable';
+import { SelectedFeature, GroupedSearchResults, SearchResultItem } from './types';
+import { dataSources, PRIORITY_KEYS, propertyNames } from './data';
+import { normalizeString, levenshteinDistance, getIdentifier, getTranslatedValue } from './utils';
+
+export default function App() {
+  const [hasEntered, setHasEntered] = useState<boolean>(false);
+
+  // Configurações de Camadas e Seleção
+  const [selectedFeatures, setSelectedFeatures] = useState<SelectedFeature[]>([]);
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState<boolean>(false);
+  const [activeLayers, setActiveLayers] = useState<string[]>([]);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [searchCoordinate, setSearchCoordinate] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Estados de Carregamento e Status do Mapa
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [statusText, setStatusText] = useState<string>('Carregando dados...');
+
+  // Controle de Caixa de Busca
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchActiveLayersOnly, setSearchActiveLayersOnly] = useState<boolean>(false);
+  const [isSearchLoading, setIsSearchLoading] = useState<boolean>(false);
+  const [searchResults, setSearchResults] = useState<GroupedSearchResults>({});
+  const [isSearchResultsVisible, setIsSearchResultsVisible] = useState<boolean>(false);
+  const [totalResultsCount, setTotalResultsCount] = useState<number>(0);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Controle do Modal de Ajuda e Notificações (Toast)
+  const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Referência para ações de mapa cruzadas
+  const mapActionsRef = useRef<{
+    loadLayerByName: (name: string) => Promise<L.GeoJSON>;
+    zoomToFeature: (layer: L.Layer) => void;
+    selectFeature: (layer: L.Layer, feature: any, sourceName: string) => void;
+  } | null>(null);
+
+  // Exibir toast temporário de feedback
+  const showToast = (msg: string) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToastMessage(msg);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  };
+
+  // Helper para verificar se um elemento corresponde ao filtro de município
+  const matchesMunicipality = (props: Record<string, any>, filterTerm: string): boolean => {
+    const munKeys = ['NM_MUN', 'Nome do município'];
+    for (const k of munKeys) {
+      if (props[k]) {
+        const val = normalizeString(String(props[k]));
+        if (val.includes(filterTerm)) return true;
+      }
+    }
+    return false;
+  };
+
+  // Algoritmo de correspondência de propriedades
+  const featureMatches = (
+    primaryTerm: string, 
+    municipalityFilter: string | null, 
+    props: Record<string, any>
+  ): { key: string; value: any; distance: number } | null => {
+    // Se há um filtro de município após a vírgula, descartar quem não corresponder
+    if (municipalityFilter && !matchesMunicipality(props, municipalityFilter)) {
+      return null;
+    }
+
+    // Buscar termo principal nas chaves de prioridade (nomes de bairros, etc)
+    for (const k of PRIORITY_KEYS) {
+      const v = props[k];
+      if (v == null || v === '') continue;
+      if (normalizeString(String(v)).includes(primaryTerm)) {
+        return { key: k, value: v, distance: -1 };
+      }
+    }
+
+    // Buscar nas outras chaves residuais
+    for (const key in props) {
+      const low = key.toLowerCase();
+      if (low === 'fid' || low === 'id' || PRIORITY_KEYS.includes(key)) continue;
+      const v = props[key];
+      if (v == null || v === '') continue;
+      if (normalizeString(String(v)).includes(primaryTerm)) {
+        return { key, value: v, distance: -1 };
+      }
+    }
+
+    return null;
+  };
+
+  // Executar busca espacial e fuzzy
+  const handleSearch = async () => {
+    const rawInput = searchQuery.trim();
+    if (!rawInput) {
+      setIsSearchResultsVisible(false);
+      return;
+    }
+
+    setIsSearchLoading(true);
+    setIsSearchResultsVisible(true);
+    setSearchResults({});
+    setTotalResultsCount(0);
+
+    // Verificar se o input é um par de coordenadas (ex: "-5.243542, -42.535423")
+    const coordRegex = /^\s*(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)\s*$/;
+    const coordMatch = rawInput.match(coordRegex);
+
+    if (coordMatch) {
+      const lat = parseFloat(coordMatch[1]);
+      const lng = parseFloat(coordMatch[3]);
+      
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        setSearchCoordinate({ lat, lng });
+        
+        const tempResults: GroupedSearchResults = {
+          "Coordenadas": [
+            {
+              polygonLayer: {
+                feature: {
+                  type: "Feature",
+                  properties: {
+                    "Nome": `Coordenada: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                    "Latitude": lat.toFixed(6),
+                    "Longitude": lng.toFixed(6),
+                    "Tipo": "Busca de Coordenada"
+                  }
+                },
+                getBounds: () => L.latLng(lat, lng).toBounds(100),
+                getLatLng: () => L.latLng(lat, lng),
+                openPopup: () => {}
+              } as any,
+              value: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+              key: "Coordenada",
+              distance: 0
+            }
+          ]
+        };
+        
+        setSearchResults(tempResults);
+        setTotalResultsCount(1);
+        setCollapsedGroups({ "Coordenadas": false });
+        setIsSearchLoading(false);
+        setIsSearchResultsVisible(true);
+        showToast(`Coordenada localizada: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        return;
+      }
+    }
+
+    let primaryTerm = '';
+    let municipalityFilter: string | null = null;
+
+    // Tratar a detecção de vírgula (ex: "Cacimba, Teresina")
+    if (rawInput.includes(',')) {
+      const parts = rawInput.split(',');
+      primaryTerm = normalizeString(parts[0].trim());
+      municipalityFilter = normalizeString(parts[1].trim());
+      if (municipalityFilter === '') municipalityFilter = null;
+    } else {
+      primaryTerm = normalizeString(rawInput);
+    }
+
+    if (!primaryTerm) {
+      setIsSearchLoading(false);
+      setIsSearchResultsVisible(false);
+      return;
+    }
+
+    try {
+      const layersToSearch: { name: string; loader: () => Promise<L.GeoJSON> }[] = [];
+
+      if (searchActiveLayersOnly) {
+        activeLayers.forEach(name => {
+          layersToSearch.push({
+            name,
+            loader: async () => {
+              if (mapActionsRef.current) return await mapActionsRef.current.loadLayerByName(name);
+              throw new Error('Ações do mapa não disponíveis');
+            }
+          });
+        });
+      } else {
+        dataSources.forEach(src => {
+          layersToSearch.push({
+            name: src.name,
+            loader: async () => {
+              if (mapActionsRef.current) return await mapActionsRef.current.loadLayerByName(src.name);
+              throw new Error('Ações do mapa não disponíveis');
+            }
+          });
+        });
+      }
+
+      const tempResults: GroupedSearchResults = {};
+      let countFound = 0;
+
+      // 1. Busca Exata/Inclusiva direta nas propriedades
+      for (const step of layersToSearch) {
+        const geoJsonLayer = await step.loader();
+        const matches: SearchResultItem[] = [];
+
+        geoJsonLayer.eachLayer((poly: any) => {
+          if (!poly.feature || !poly.feature.properties) return;
+          const props = poly.feature.properties;
+          const hit = featureMatches(primaryTerm, municipalityFilter, props);
+          if (hit) {
+            matches.push({
+              polygonLayer: poly,
+              value: hit.value,
+              key: hit.key,
+              distance: hit.distance
+            });
+          }
+        });
+
+        if (matches.length > 0) {
+          tempResults[step.name] = matches;
+          countFound += matches.length;
+        }
+      }
+
+      // 2. Busca Fuzzy (Fuzzy Match com distância de Levenshtein) se nenhum resultado exato for encontrado
+      if (countFound === 0 && primaryTerm.length >= 4) {
+        const FUZZY_LIMIT = 120;
+        let fuzzyCount = 0;
+
+        for (const step of layersToSearch) {
+          if (fuzzyCount >= FUZZY_LIMIT) break;
+          const geoJsonLayer = await step.loader();
+          const matches: SearchResultItem[] = [];
+
+          geoJsonLayer.eachLayer((poly: any) => {
+            if (fuzzyCount >= FUZZY_LIMIT) return;
+            if (!poly.feature || !poly.feature.properties) return;
+            const props = poly.feature.properties;
+
+            if (municipalityFilter && !matchesMunicipality(props, municipalityFilter)) return;
+
+            for (const k of PRIORITY_KEYS) {
+              const v = props[k];
+              if (v == null || v === '') continue;
+              const normalizedValue = normalizeString(String(v));
+              const dist = levenshteinDistance(primaryTerm, normalizedValue);
+
+              if (dist <= 2 || (primaryTerm.length >= 6 && dist <= 3)) {
+                matches.push({
+                  polygonLayer: poly,
+                  value: v,
+                  key: k,
+                  distance: dist
+                });
+                fuzzyCount++;
+                break;
+              }
+            }
+          });
+
+          if (matches.length > 0) {
+            tempResults[step.name] = matches;
+            countFound += matches.length;
+          }
+        }
+      }
+
+      // Ordenar resultados fuzzy por proximidade
+      Object.keys(tempResults).forEach(key => {
+        tempResults[key].sort((a, b) => a.distance - b.distance);
+      });
+
+      setSearchResults(tempResults);
+      setTotalResultsCount(countFound);
+
+      // Iniciar accordions contraídos por padrão a pedido do usuário
+      const initialCollapsed: Record<string, boolean> = {};
+      Object.keys(tempResults).forEach(name => {
+        initialCollapsed[name] = true;
+      });
+      setCollapsedGroups(initialCollapsed);
+
+    } catch (err) {
+      console.error(err);
+      showToast('Ocorreu um erro ao pesquisar.');
+    } finally {
+      setIsSearchLoading(false);
+    }
+  };
+
+  // Limpar busca atual
+  const handleAbandonSearch = () => {
+    setSearchQuery('');
+    setSearchResults({});
+    setTotalResultsCount(0);
+    setIsSearchResultsVisible(false);
+    setSearchCoordinate(null);
+    showToast('Busca redefinida.');
+  };
+
+  // Clique em um item do resultado de pesquisa
+  const handleResultItemClick = async (layerName: string, item: SearchResultItem) => {
+    if (!mapInstance) return;
+
+    if (layerName === "Coordenadas") {
+      const lat = parseFloat(item.polygonLayer.feature.properties.Latitude);
+      const lng = parseFloat(item.polygonLayer.feature.properties.Longitude);
+      setSearchCoordinate({ lat, lng });
+      mapInstance.setView([lat, lng], 14);
+      showToast(`Focado na coordenada: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      return;
+    }
+
+    if (!mapActionsRef.current) return;
+
+    try {
+      // 1. Garantir que a camada do item esteja ativada no mapa
+      const loadedGeoJson = await mapActionsRef.current.loadLayerByName(layerName);
+      if (!mapInstance.hasLayer(loadedGeoJson)) {
+        loadedGeoJson.addTo(mapInstance);
+        if (!activeLayers.includes(layerName)) {
+          setActiveLayers([...activeLayers, layerName]);
+        }
+      }
+
+      // 2. Centralizar câmera na feição
+      const targetPoly = item.polygonLayer;
+      mapActionsRef.current.zoomToFeature(targetPoly);
+
+      // 3. Simular clique na feição para selecioná-la
+      mapActionsRef.current.selectFeature(targetPoly, targetPoly.feature, layerName);
+
+      // 4. Abrir pop-up nativo se disponível
+      if (typeof targetPoly.openPopup === 'function') {
+        targetPoly.openPopup();
+      }
+
+      // 5. Reduzir ou fechar busca na visualização móvel
+      showToast(`Centralizado em: ${getIdentifier(targetPoly.feature?.properties)}`);
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao focar na feição selecionada.');
+    }
+  };
+
+  // Remover feição individual da lista de selecionados
+  const handleRemoveFromSelection = (id: string) => {
+    const target = selectedFeatures.find(f => f.id === id);
+    if (target) {
+      const lyr = target.layer as any;
+      if (lyr && typeof lyr.setStyle === 'function') {
+        lyr.setStyle(lyr.defaultStyle);
+      }
+      setSelectedFeatures(selectedFeatures.filter(f => f.id !== id));
+      showToast('Feição removida da seleção.');
+    }
+  };
+
+  // Zoom para feição selecionada
+  const handleZoomToFeature = (feat: SelectedFeature) => {
+    if (mapActionsRef.current) {
+      mapActionsRef.current.zoomToFeature(feat.layer);
+      if (typeof (feat.layer as any).openPopup === 'function') {
+        (feat.layer as any).openPopup();
+      }
+      showToast(`Centralizando câmera em ${feat.name}`);
+    }
+  };
+
+  // Monitoramento do input de busca com debounce
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (searchQuery.trim().length > 1) {
+        handleSearch();
+      } else if (searchQuery.trim() === '') {
+        setSearchResults({});
+        setTotalResultsCount(0);
+        setIsSearchResultsVisible(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(handler);
+  }, [searchQuery, searchActiveLayersOnly]);
+
+  if (!hasEntered) {
+    return (
+      <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-4 font-sans select-none overflow-hidden animate-fade-in">
+        {/* Papel de parede de fundo desfocado (borrado) */}
+        <div 
+          className="fixed inset-0 z-[-2] pointer-events-none filter blur-[8px] scale-[1.03]"
+          style={{
+            backgroundImage: "url('https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/banner-mock.webp')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        {/* Camada de Desfoque de Fundo para Efeito Vidro */}
+        <div className="fixed inset-0 bg-white/40 backdrop-blur-md z-[-1]" />
+
+        {/* Card de Entrada */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="w-full max-w-lg bg-white/80 backdrop-blur-xl rounded-3xl p-8 sm:p-10 shadow-2xl border border-white/60 flex flex-col items-center text-center space-y-8"
+        >
+          {/* Logo Principal */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <img 
+              src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-Photoroom.png" 
+              alt="Logo WebGis" 
+              className="h-28 sm:h-32 drop-shadow-xl hover:scale-105 transition-transform duration-300" 
+            />
+          </motion.div>
+ 
+          {/* Título e Texto */}
+          <div className="space-y-3">
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-800">
+              WebGis
+            </h1>
+            <p className="text-xs sm:text-sm font-semibold tracking-widest text-indigo-700 uppercase">
+              Inteligência Geográfica
+            </p>
+            <p className="text-slate-600 text-sm sm:text-base leading-relaxed pt-2">
+              Explore camadas de dados geoespaciais, faça consultas avançadas e analise informações municipais em uma interface interativa de alto desempenho.
+            </p>
+          </div>
+ 
+          {/* Botão Entrar */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setHasEntered(true)}
+            className="w-full sm:w-auto px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-600/30 transition-colors flex items-center justify-center gap-3 cursor-pointer group"
+          >
+            <span>Entrar no Sistema</span>
+            <svg 
+              className="w-5 h-5 group-hover:translate-x-1 transition-transform" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor" 
+              strokeWidth="2.5"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </motion.button>
+ 
+          {/* Footer discreto */}
+          <p className="text-slate-400 text-xs font-mono">
+            &copy; {new Date().getFullYear()} WebGis. Todos os direitos reservados.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative min-h-screen w-full flex flex-col items-center p-2 sm:p-4 md:p-6 space-y-4 font-sans select-none overflow-x-hidden">
+      {/* Papel de parede de fundo desfocado (borrado) */}
+      <div 
+        className="fixed inset-0 z-[-2] pointer-events-none filter blur-[8px] scale-[1.03]"
+        style={{
+          backgroundImage: "url('https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/banner-mock.webp')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      />
+      {/* Camada de Desfoque de Fundo para Efeito Vidro */}
+      <div className="fixed inset-0 bg-white/40 backdrop-blur-md z-[-1]" />
+
+      {/* QUADRO PRINCIPAL / CONTAINER DE VIDRO GIGANTE */}
+      <main className="w-full max-w-[1440px] bg-white rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 z-10 border border-white/50">
+        
+        {/* CABEÇALHO */}
+        <header className="flex flex-col lg:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          {/* Logo e Branding */}
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-Photoroom.png" 
+              alt="Logo GeoCode" 
+              className="h-14 sm:h-16 hover:scale-105 transition-transform" 
+            />
+          </div>
+
+          {/* Campo de Busca Avançada */}
+          <div className="w-full lg:w-auto flex flex-col gap-2 max-w-xl flex-grow lg:flex-grow-0">
+            {/* Opção de busca restrita */}
+            <div className="flex items-center self-end" title="Busca somente nas camadas ligadas">
+              <input 
+                id="search-active-layers-toggle" 
+                type="checkbox" 
+                checked={searchActiveLayersOnly}
+                onChange={(e) => setSearchActiveLayersOnly(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
+              />
+              <label htmlFor="search-active-layers-toggle" className="ml-2 text-xs text-slate-600 font-semibold cursor-pointer select-none">
+                Pesquisar apenas nas camadas ativas
+              </label>
+            </div>
+
+            {/* Barra de Input */}
+            <div className="w-full flex items-center gap-2">
+              <div className="relative flex-grow">
+                <div className="flex rounded-xl shadow-sm border border-slate-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden bg-slate-50 transition-all">
+                  <input 
+                    type="text" 
+                    id="search-input" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Pesquisar (ex: Centro, Teresina)" 
+                    autoComplete="off"
+                    className="w-full px-4 py-2.5 text-slate-800 bg-transparent focus:outline-none text-sm placeholder-slate-400 font-semibold"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={handleAbandonSearch}
+                      className="px-2 text-slate-400 hover:text-red-500"
+                      title="Limpar busca"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button 
+                    onClick={handleSearch}
+                    disabled={isSearchLoading}
+                    className="px-4 bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center cursor-pointer border-l border-indigo-700" 
+                    title="Pesquisar"
+                  >
+                    {isSearchLoading ? (
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <Search className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 ml-1 font-medium select-none">
+              💡 Dica: Use <strong>vírgula</strong> para filtrar por município (ex: <em>Cacimba, Teresina</em>).
+            </p>
+          </div>
+        </header>
+
+        {/* TOOLBAR SECUNDÁRIA (OPÇÃO DE MULTISELEÇÃO) */}
+        <section className="flex flex-col sm:flex-row items-center justify-end gap-3 pb-1">
+          <button 
+            id="btn-multi-select" 
+            onClick={() => {
+              setIsMultiSelectMode(!isMultiSelectMode);
+              showToast(isMultiSelectMode ? 'Multiseleção desativada.' : 'Multiseleção ativada! Clique em várias áreas.');
+            }}
+            className={`px-3.5 py-2 rounded-xl border text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
+              isMultiSelectMode 
+                ? 'bg-indigo-600 border-indigo-700 text-white hover:bg-indigo-700' 
+                : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+            }`}
+            title="Permite selecionar várias áreas tocando nelas sem precisar do teclado"
+          >
+            <MousePointerClick className="h-4 w-4" />
+            Multiseleção: {isMultiSelectMode ? 'ON' : 'OFF'}
+          </button>
+        </section>
+
+        {/* PAINEL DE RESULTADOS DA BUSCA */}
+        <AnimatePresence>
+          {isSearchResultsVisible && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              id="search-results-container" 
+              className="w-full bg-white rounded-2xl border border-indigo-100 shadow-xl p-4 space-y-3 z-30 relative"
+            >
+              <div className="flex justify-between items-center border-b border-indigo-50 pb-2">
+                <small id="search-results-title" className="text-indigo-900 font-bold text-sm">
+                  {isSearchLoading ? 'Buscando...' : `${totalResultsCount} resultado(s) encontrado(s)`}
+                </small>
+                <button 
+                  onClick={handleAbandonSearch}
+                  className="text-slate-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-colors" 
+                  title="Fechar resultados"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div id="search-results-list" className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                {Object.keys(searchResults).length > 0 ? (
+                  Object.entries(searchResults).map(([groupName, items]) => {
+                    const isCollapsed = !!collapsedGroups[groupName];
+                    const typedItems = items as SearchResultItem[];
+                    return (
+                      <div key={groupName} className="border border-slate-100 rounded-xl overflow-hidden bg-white shadow-sm">
+                        <button 
+                          onClick={() => setCollapsedGroups({ ...collapsedGroups, [groupName]: !isCollapsed })}
+                          className="w-full p-3 flex justify-between items-center bg-slate-50/80 text-slate-800 hover:bg-slate-50 transition-colors font-bold text-sm border-b border-slate-100 cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-indigo-800">{groupName}</span>
+                            <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{typedItems.length}</span>
+                          </div>
+                          {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                        </button>
+
+                        {!isCollapsed && (
+                          <div className="divide-y divide-slate-50">
+                            {typedItems.map((item, idx) => {
+                              const featureProps = item.polygonLayer.feature.properties;
+                              const identifier = getIdentifier(featureProps);
+                              let displayVal = item.value;
+                              if (item.key === 'CD_SIT' || item.key === 'CD_TIPO') {
+                                displayVal = getTranslatedValue(item.key, item.value);
+                              }
+                              const fieldName = propertyNames[item.key] || item.key;
+                              const muniContext = featureProps['Nome do município'] || featureProps['NM_MUN'];
+
+                              return (
+                                <div 
+                                  key={idx}
+                                  onClick={() => handleResultItemClick(groupName, item)}
+                                  className="p-3 hover:bg-indigo-50/40 cursor-pointer transition-colors text-sm pl-6 flex items-start gap-2 group"
+                                >
+                                  <MapPin className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 mt-0.5 shrink-0" />
+                                  <div className="flex-grow">
+                                    <p className="font-semibold text-slate-800 group-hover:text-indigo-900 transition-colors">{identifier}</p>
+                                    {String(displayVal).toLowerCase() !== String(identifier).toLowerCase() ? (
+                                      <p className="text-xs text-slate-500 mt-0.5">
+                                        Encontrado em <strong className="text-slate-600">{fieldName}</strong>: {displayVal}
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-slate-400 mt-0.5">Atributo: {fieldName}</p>
+                                    )}
+                                    {muniContext && String(muniContext).toLowerCase() !== String(identifier).toLowerCase() && (
+                                      <p className="text-[10px] text-indigo-600 font-bold mt-1 bg-indigo-50 px-2 py-0.5 rounded-full inline-block">
+                                        Município: {muniContext}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  !isSearchLoading && (
+                    <p className="p-4 text-center text-slate-500 text-sm font-semibold bg-slate-50 rounded-xl">
+                      Nenhum local correspondente encontrado. Verifique a grafia ou experimente outra camada.
+                    </p>
+                  )
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* MAPA INTERATIVO PRINCIPAL */}
+        <MapComponent 
+          isMultiSelectMode={isMultiSelectMode}
+          selectedFeatures={selectedFeatures}
+          onSelectionChange={setSelectedFeatures}
+          showToast={showToast}
+          statusText={statusText}
+          setStatusText={setStatusText}
+          isLoading={isLoading}
+          setIsLoading={setIsLoading}
+          activeLayers={activeLayers}
+          setActiveLayers={setActiveLayers}
+          setMapInstance={setMapInstance}
+          registerMapActions={(actions) => {
+            mapActionsRef.current = actions;
+          }}
+          searchCoordinate={searchCoordinate}
+        />
+
+        {/* PAINEL DASHBOARD (RAIO-X POPULACIONAL) */}
+        <Dashboard selectedFeatures={selectedFeatures} />
+
+        {/* FEIÇÕES SELECIONADAS (LISTAGEM DE SELEÇÃO ATUAL COM LIMPEZA E ZOOM) */}
+        <AnimatePresence>
+          {selectedFeatures.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              id="selected-features-container" 
+              className="w-full bg-white rounded-2xl border border-slate-100 shadow-xl p-4 overflow-hidden"
+            >
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 border-l-4 border-indigo-600 pl-2.5 mb-3">
+                Feições Selecionadas ({selectedFeatures.length})
+              </h3>
+              <div id="selected-features-list" className="max-h-[180px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                {selectedFeatures.map(feat => (
+                  <div 
+                    key={feat.id} 
+                    className="flex justify-between items-center p-2.5 bg-slate-50 hover:bg-indigo-50/10 border border-slate-100 rounded-xl transition-all"
+                  >
+                    <div>
+                      <p className="font-bold text-sm text-slate-900 leading-snug">{feat.name}</p>
+                      <p className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-full inline-block mt-1">
+                        {feat.sourceName}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => handleZoomToFeature(feat)}
+                        className="p-1.5 text-indigo-700 hover:bg-indigo-100/50 rounded-lg transition-colors cursor-pointer" 
+                        title="Zoom na feição"
+                      >
+                        <ZoomIn className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => handleRemoveFromSelection(feat.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" 
+                        title="Remover da seleção"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* TABELA DE PROPRIEDADES E EXPORTAÇÃO */}
+        <PropertyTable selectedFeatures={selectedFeatures} showToast={showToast} />
+
+      </main>
+
+      {/* RODAPÉ E PARCEIROS */}
+      <footer className="w-full max-w-[1440px] mt-2 text-center pb-4 select-none z-10">
+        <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-100 flex flex-col items-center gap-6">
+          <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-10">
+            <img 
+              src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/IBGE.png" 
+              alt="Logo IBGE" 
+              className="h-7 sm:h-9 object-contain hover:scale-105 transition-transform"
+            />
+            <img 
+              src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/web/main/geojsom/SSP.png" 
+              alt="Logo SSP" 
+              className="h-11 sm:h-14 object-contain hover:scale-105 transition-transform"
+              onError={(e) => {
+                // Fallback caso a URL SSP original mude
+                (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-removebg-preview.png';
+              }}
+            />
+            <img 
+              src="https://raw.githubusercontent.com/marciodemelosilvageo-glitch/GeoCode/main/logo/image-Photoroom.png" 
+              alt="Logo Gerência de Dados" 
+              className="h-11 sm:h-14 object-contain hover:scale-105 transition-transform"
+            />
+          </div>
+          
+          <div className="border-t border-slate-100 w-full pt-4 mt-2">
+            <p className="text-xs sm:text-sm font-extrabold text-slate-700">WesGis - Desenvolvido por Marcio Silva</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Contato: <a href="mailto:marciodemelosilva.geo@gmail.com" className="hover:text-indigo-600 font-semibold transition-colors underline">marciodemelosilva.geo@gmail.com</a>
+            </p>
+          </div>
+        </div>
+      </footer>
+
+      {/* NOTIFICAÇÃO TOAST TEMPORÁRIA */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: 30, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 30, x: '-50%' }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl z-[5000] font-bold text-sm flex items-center gap-2 border border-slate-800"
+          >
+            <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* BOTÃO AJUDA FLUTUANTE */}
+      <button 
+        id="help-btn" 
+        onClick={() => setIsHelpOpen(true)}
+        className="fixed bottom-6 right-6 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 z-[2000] flex items-center justify-center transition-transform hover:scale-110 active:scale-95 cursor-pointer" 
+        title="Ajuda e Instruções"
+      >
+        <HelpCircle className="h-7 w-7" />
+      </button>
+
+      {/* MODAL DE AJUDA */}
+      <AnimatePresence>
+        {isHelpOpen && (
+          <div 
+            id="help-modal-backdrop"
+            onClick={() => setIsHelpOpen(false)}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[3000] flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()} // Impede fechamento ao clicar dentro
+              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative max-h-[85vh] overflow-y-auto custom-scrollbar border border-slate-100"
+            >
+              <button 
+                id="close-help" 
+                onClick={() => setIsHelpOpen(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-full transition-colors cursor-pointer" 
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <h2 className="text-2xl font-black text-indigo-700 mb-4 flex items-center gap-2 border-b border-indigo-50 pb-3">
+                <HelpCircle className="w-6 h-6 text-indigo-600" />
+                Como usar o GeoCode
+              </h2>
+
+              <div className="space-y-4 text-slate-700 text-sm">
+                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                  <h3 className="font-extrabold text-indigo-900 mb-1 text-base flex items-center gap-1.5">🗺️ 1. Navegando no Mapa</h3>
+                  <p className="text-indigo-950/80 leading-relaxed">
+                    O mapa exibe as divisões territoriais oficiais. Use o <strong>botão de camadas flutuante no canto superior direito</strong> do mapa para Ligar/Desligar as opções (Municípios, Bairros, Favelas, etc.) e para alterar o mapa de fundo (ex: satélite).
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <h3 className="font-extrabold text-slate-900 mb-1 text-base flex items-center gap-1.5">🖱️ 2. Selecionando Áreas</h3>
+                  <p className="mb-2 text-slate-800 leading-relaxed">
+                    <strong>Clique Simples:</strong> Clique em um polígono colorido para gerar automaticamente um "Raio-X" populacional e ver os detalhes de propriedades da tabela inferior.
+                  </p>
+                  <p className="text-slate-800 leading-relaxed">
+                    <strong>Seleção Múltipla:</strong> Ative o botão <strong>"Multiseleção"</strong> (ideal para celulares/telas de toque) ou segure a tecla <kbd className="bg-white border border-slate-300 px-1.5 py-0.5 rounded shadow-sm font-mono text-xs text-slate-800">Ctrl</kbd> no teclado do computador e clique em várias regiões ao mesmo tempo para somar as populações e domicílios instantaneamente!
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <h3 className="font-extrabold text-slate-900 mb-1 text-base flex items-center gap-1.5">🔍 3. Buscas Avançadas</h3>
+                  <p className="text-slate-800 leading-relaxed">
+                    Utilize a barra no topo para encontrar municípios, bairros ou comunidades. 
+                    <br /><strong>Dica de Ouro:</strong> Se o nome for comum, use uma vírgula para especificar o município. Exemplo: digite <strong><code>Cacimba, Teresina</code></strong> para buscar a localidade Cacimba apenas dentro de Teresina.
+                  </p>
+                </div>
+
+                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                  <h3 className="font-extrabold text-emerald-900 mb-1 text-base flex items-center gap-1.5">📥 4. Exportação de Dados</h3>
+                  <p className="text-emerald-950/80 leading-relaxed">
+                    Após selecionar feições ou fazer uma busca, role a página até a tabela de "Especificação das Feições". Lá você encontrará botões dedicados para baixar os dados compilados em <strong>CSV</strong> (planilha do Excel) ou <strong>KML</strong> (Google Earth).
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button 
+                  id="btn-entendi" 
+                  onClick={() => setIsHelpOpen(false)}
+                  className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg cursor-pointer"
+                >
+                  Começar a Usar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
